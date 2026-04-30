@@ -249,10 +249,14 @@ class StorageManager {
         spawnSync('attrib', ['-r', this.reserveFile], { stdio: 'ignore', shell: true });
       }
 
-      // Optimization: use fs.truncateSync to create a "Sparse File".
-      // On modern filesystems (NTFS, ext4, APFS), this logically reserves the size 
-      // without actually writing zeros to disk, making it instantaneous and space-efficient
-      // until actual data is written.
+      // Create the file if it doesn't exist (truncateSync requires the file to pre-exist)
+      if (!fs.existsSync(this.reserveFile)) {
+        fs.writeFileSync(this.reserveFile, Buffer.alloc(0));
+      }
+
+      // Use sparse file truncation: logically reserves the size without writing zeros to disk.
+      // NTFS, ext4, and APFS all support this — the OS reports space as consumed on the drive
+      // but no actual blocks are written until real data fills them.
       fs.truncateSync(this.reserveFile, target);
 
       this._applyHiding(this.reserveFile);

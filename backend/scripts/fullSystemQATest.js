@@ -209,16 +209,12 @@ async function main() {
 
     // 6) Marketplace & Shareable Links
     // 6a. Seeker makes the binary file a paid shareable link
-    await axios.post(`${API}/marketplace/list`, {
-      fileRecordId: binUpload.fileId,
+    await axios.patch(`${API}/storage/files/${binUpload.fileId}/settings`, {
       visibility: 'shared',
-      title: 'QA Shared File',
-      description: 'Test file',
-      priceSCT: 5,
       isLocked: true,
-      singleSale: false
+      priceSCT: 5
     }, { headers: { Authorization: `Bearer ${seekerToken}` } });
-    logStep('Updated file to shared, locked, price 5 SCT');
+    logStep('Updated file to shared, locked, price 5 SCT via storage settings');
 
     // 6b. Provider uploads a file to sell
     const provUpload = await uploadFile(provToken, imgPath);

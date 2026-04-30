@@ -431,7 +431,6 @@ router.get('/files/:fileId', authMiddleware, async (req, res) => {
 // Decrypts and verifies SHA-256 integrity before returning file
 router.get('/download/:fileId', authMiddleware, async (req, res) => {
   try {
-    // Load the file record (without userId constraint - access checked below)
     const fileRecord = await FileRecord.findOne({
       _id:       req.params.fileId,
       isDeleted: false,
@@ -450,99 +449,123 @@ router.get('/download/:fileId', authMiddleware, async (req, res) => {
     }
 
     const sortedChunks = [...fileRecord.chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
+    const fileLabel = `[Download][${fileRecord.fileName}]`;
+    console.log(`${fileLabel} Starting retrieval. Chunks: ${sortedChunks.length}, Tiers: provider → replica → IPFS → S3`);
 
-    // Attempt to fetch every chunk (tier 1 primary, tier 2 replica)
-    const chunkBuffers = await Promise.all(sortedChunks.map(async (chunk) => {
+    // ── Tier 1 & 2: fetch each chunk from primary then replica agent ──────
+    let tierUsed = 'provider';
+    const chunkBuffers = await Promise.all(sortedChunks.map(async (chunk, idx) => {
       // Tier 1: primary provider
       if (chunk.providerUrl) {
         try {
-          const res = await axios.get(`${chunk.providerUrl}/chunk/${chunk.chunkId}`, {
+          const t0 = Date.now();
+          const r = await axios.get(`${chunk.providerUrl}/chunk/${chunk.chunkId}`, {
             headers:      { 'x-agent-key': AGENT_KEY },
             responseType: 'arraybuffer',
             timeout:      15000,
           });
-          return Buffer.from(res.data);
+          console.log(`${fileLabel} Chunk ${idx} ← Tier-1 provider (${chunk.providerUrl}) in ${Date.now()-t0}ms`);
+          return Buffer.from(r.data);
         } catch (e) {
-          console.warn(`[Download] Tier-1 failed for chunk ${chunk.chunkId}: ${e.message}`);
+          console.warn(`${fileLabel} Chunk ${idx} Tier-1 FAILED (${chunk.providerUrl}): ${e.message}`);
         }
       }
 
       // Tier 2: replica provider
       if (chunk.replicaProviderUrl) {
         try {
-          const res = await axios.get(`${chunk.replicaProviderUrl}/chunk/${chunk.chunkId}`, {
+          const t0 = Date.now();
+          const r = await axios.get(`${chunk.replicaProviderUrl}/chunk/${chunk.chunkId}`, {
             headers:      { 'x-agent-key': AGENT_KEY },
             responseType: 'arraybuffer',
             timeout:      15000,
           });
-          console.log(`[Download] Tier-2 (replica) succeeded for chunk ${chunk.chunkId}`);
-          return Buffer.from(res.data);
+          console.log(`${fileLabel} Chunk ${idx} ← Tier-2 REPLICA (${chunk.replicaProviderUrl}) in ${Date.now()-t0}ms`);
+          tierUsed = 'replica';
+          return Buffer.from(r.data);
         } catch (e) {
-          console.warn(`[Download] Tier-2 failed for chunk ${chunk.chunkId}: ${e.message}`);
+          console.warn(`${fileLabel} Chunk ${idx} Tier-2 FAILED (${chunk.replicaProviderUrl}): ${e.message}`);
         }
       }
 
-      return null; // chunk unavailable from provider tiers
+      return null;
     }));
 
     let encryptedBuffer = null;
 
     if (chunkBuffers.every(b => b !== null)) {
-      // All chunks retrieved from provider agents — reassemble
+      // All chunks retrieved from provider/replica agents — reassemble
       encryptedBuffer = chunkBuffers.length === 1
         ? chunkBuffers[0]
         : reassembleChunks(chunkBuffers);
+      console.log(`${fileLabel} ✅ Reassembled ${chunkBuffers.length} chunk(s) from ${tierUsed} tier. Size: ${encryptedBuffer.length} bytes`);
     } else {
+      const failedCount = chunkBuffers.filter(b => b === null).length;
+      console.warn(`${fileLabel} ⚠️  ${failedCount}/${sortedChunks.length} chunks unavailable from providers. Falling back...`);
+
       // Tier 3: full-file IPFS fallback
       if (fileRecord.ipfsCid) {
         try {
-          console.log(`[Download] Tier-3: fetching encrypted file from IPFS ${fileRecord.ipfsCid}`);
+          const t0 = Date.now();
+          console.log(`${fileLabel} Tier-3: fetching encrypted file from IPFS CID ${fileRecord.ipfsCid}`);
           const ipfsRes = await axios.get(
             `https://gateway.pinata.cloud/ipfs/${fileRecord.ipfsCid}`,
             { responseType: 'arraybuffer', timeout: 60000 }
           );
           encryptedBuffer = Buffer.from(ipfsRes.data);
+          tierUsed = 'IPFS';
+          console.log(`${fileLabel} ✅ Tier-3 IPFS succeeded in ${Date.now()-t0}ms. Size: ${encryptedBuffer.length} bytes`);
         } catch (e) {
-          console.warn('[Download] Tier-3 IPFS failed:', e.message);
+          console.warn(`${fileLabel} Tier-3 IPFS FAILED: ${e.message}`);
         }
       }
 
       // Tier 4: cloud S3 fallback
       if (!encryptedBuffer && fileRecord.cloudBackupPath) {
-        console.log(`[Download] Tier-4: fetching from cloud backup ${fileRecord.cloudBackupPath}`);
+        const t0 = Date.now();
+        console.log(`${fileLabel} Tier-4: fetching from S3 backup ${fileRecord.cloudBackupPath}`);
         encryptedBuffer = await cloudBackupService.download(fileRecord.cloudBackupPath);
+        tierUsed = 'S3';
+        console.log(`${fileLabel} ✅ Tier-4 S3 succeeded in ${Date.now()-t0}ms. Size: ${encryptedBuffer?.length} bytes`);
       }
 
       if (!encryptedBuffer) {
+        console.error(`${fileLabel} ❌ All 4 tiers exhausted — file unavailable.`);
         return res.status(503).json({ message: 'File unavailable — all storage tiers failed' });
       }
     }
 
-    // Decrypt
+    // ── Decrypt ────────────────────────────────────────────────────────────
     let outputBuffer = encryptedBuffer;
     if (fileRecord.isEncrypted && fileRecord.encryptedKey && fileRecord.iv) {
       try {
+        const t0 = Date.now();
         outputBuffer = encryptionService.decrypt(encryptedBuffer, fileRecord.encryptedKey, fileRecord.iv);
+        console.log(`${fileLabel} Decrypted in ${Date.now()-t0}ms. Plain size: ${outputBuffer.length} bytes`);
       } catch (e) {
-        console.error('[Download] Decryption failed:', e.message);
+        console.error(`${fileLabel} ❌ Decryption failed: ${e.message}`);
         return res.status(500).json({ message: 'Decryption failed — file may be corrupted' });
       }
     }
 
-    // SHA-256 integrity verification
+    // ── SHA-256 integrity verification ────────────────────────────────────
     if (fileRecord.sha256Hash) {
+      const t0 = Date.now();
       const actualHash = crypto.createHash('sha256').update(outputBuffer).digest('hex');
       if (actualHash !== fileRecord.sha256Hash) {
-        console.error(`[Download] Integrity check FAILED for file ${fileRecord._id}`);
+        console.error(`${fileLabel} ❌ Integrity check FAILED — hash mismatch (tier: ${tierUsed})`);
         return res.status(500).json({ message: 'File integrity check failed — data may be corrupted' });
       }
+      console.log(`${fileLabel} ✅ SHA-256 integrity verified in ${Date.now()-t0}ms (tier: ${tierUsed})`);
     }
 
+    console.log(`${fileLabel} ✅ Serving ${outputBuffer.length} bytes via ${tierUsed} tier`);
     res.set('Content-Disposition', `attachment; filename="${fileRecord.fileName}"`);
     res.set('Content-Type', fileRecord.mimeType);
+    res.set('X-Storage-Tier', tierUsed); // header so frontend can show which tier served the file
     res.send(outputBuffer);
 
-    // Fire-and-forget: record download on-chain (look up wallet from DB — JWT may not carry it)
+    // Fire-and-forget: record download on-chain
     if (fileRecord.sha256Hash) {
       (async () => {
         try {
@@ -688,20 +711,35 @@ router.get('/public/:shareToken/download', async (req, res) => {
     }
 
     const sortedChunks = [...file.chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
-    const chunkBuffers = await Promise.all(sortedChunks.map(async (chunk) => {
+    const fileLabel = `[PublicDownload][${file.fileName}]`;
+    console.log(`${fileLabel} Starting retrieval. Chunks: ${sortedChunks.length}`);
+
+    let tierUsed = 'provider';
+    const chunkBuffers = await Promise.all(sortedChunks.map(async (chunk, idx) => {
+      // Tier 1: primary provider
       if (chunk.providerUrl) {
         try {
+          const t0 = Date.now();
           const r = await axios.get(`${chunk.providerUrl}/chunk/${chunk.chunkId}`,
             { headers: { 'x-agent-key': AGENT_KEY }, responseType: 'arraybuffer', timeout: 15000 });
+          console.log(`${fileLabel} Chunk ${idx} ← Tier-1 provider in ${Date.now()-t0}ms`);
           return Buffer.from(r.data);
-        } catch (_) {}
+        } catch (e) {
+          console.warn(`${fileLabel} Chunk ${idx} Tier-1 FAILED: ${e.message}`);
+        }
       }
+      // Tier 2: replica
       if (chunk.replicaProviderUrl) {
         try {
+          const t0 = Date.now();
           const r = await axios.get(`${chunk.replicaProviderUrl}/chunk/${chunk.chunkId}`,
             { headers: { 'x-agent-key': AGENT_KEY }, responseType: 'arraybuffer', timeout: 15000 });
+          console.log(`${fileLabel} Chunk ${idx} ← Tier-2 REPLICA in ${Date.now()-t0}ms`);
+          tierUsed = 'replica';
           return Buffer.from(r.data);
-        } catch (_) {}
+        } catch (e) {
+          console.warn(`${fileLabel} Chunk ${idx} Tier-2 FAILED: ${e.message}`);
+        }
       }
       return null;
     }));
@@ -709,32 +747,66 @@ router.get('/public/:shareToken/download', async (req, res) => {
     let encryptedBuffer = null;
     if (chunkBuffers.length > 0 && chunkBuffers.every(b => b !== null)) {
       encryptedBuffer = chunkBuffers.length === 1 ? chunkBuffers[0] : reassembleChunks(chunkBuffers);
+      console.log(`${fileLabel} ✅ Reassembled from ${tierUsed} tier. Size: ${encryptedBuffer.length} bytes`);
     }
+
+    // Tier 3: IPFS
     if (!encryptedBuffer && file.ipfsCid) {
       try {
+        const t0 = Date.now();
+        console.log(`${fileLabel} Tier-3: fetching from IPFS ${file.ipfsCid}`);
         const r = await axios.get(`https://gateway.pinata.cloud/ipfs/${file.ipfsCid}`,
           { responseType: 'arraybuffer', timeout: 60000 });
         encryptedBuffer = Buffer.from(r.data);
-      } catch (_) {}
+        tierUsed = 'IPFS';
+        console.log(`${fileLabel} ✅ Tier-3 IPFS succeeded in ${Date.now()-t0}ms`);
+      } catch (e) {
+        console.warn(`${fileLabel} Tier-3 IPFS FAILED: ${e.message}`);
+      }
     }
-    if (!encryptedBuffer && file.cloudBackupPath) {
-      encryptedBuffer = await cloudBackupService.download(file.cloudBackupPath);
-    }
-    if (!encryptedBuffer) return res.status(503).json({ error: 'File unavailable — all storage tiers failed' });
 
+    // Tier 4: S3
+    if (!encryptedBuffer && file.cloudBackupPath) {
+      const t0 = Date.now();
+      console.log(`${fileLabel} Tier-4: fetching from S3 ${file.cloudBackupPath}`);
+      encryptedBuffer = await cloudBackupService.download(file.cloudBackupPath);
+      tierUsed = 'S3';
+      console.log(`${fileLabel} ✅ Tier-4 S3 succeeded in ${Date.now()-t0}ms`);
+    }
+
+    if (!encryptedBuffer) {
+      console.error(`${fileLabel} ❌ All tiers exhausted.`);
+      return res.status(503).json({ error: 'File unavailable — all storage tiers failed' });
+    }
+
+    // Decrypt
     let outputBuffer = encryptedBuffer;
     if (file.isEncrypted && file.encryptedKey && file.iv) {
       try {
+        const t0 = Date.now();
         outputBuffer = encryptionService.decrypt(encryptedBuffer, file.encryptedKey, file.iv);
+        console.log(`${fileLabel} Decrypted in ${Date.now()-t0}ms`);
       } catch (_) {
         return res.status(500).json({ error: 'Decryption failed' });
       }
     }
 
+    // SHA-256 integrity check (also applies to public downloads)
+    if (file.sha256Hash) {
+      const actualHash = crypto.createHash('sha256').update(outputBuffer).digest('hex');
+      if (actualHash !== file.sha256Hash) {
+        console.error(`${fileLabel} ❌ Integrity check FAILED (tier: ${tierUsed})`);
+        return res.status(500).json({ error: 'File integrity check failed' });
+      }
+      console.log(`${fileLabel} ✅ SHA-256 integrity verified (tier: ${tierUsed})`);
+    }
+
     FileRecord.findByIdAndUpdate(file._id, { $inc: { downloadCount: 1 } }).catch(() => {});
 
+    console.log(`${fileLabel} ✅ Serving ${outputBuffer.length} bytes via ${tierUsed} tier`);
     res.set('Content-Disposition', `attachment; filename="${file.fileName}"`);
     res.set('Content-Type', file.mimeType || 'application/octet-stream');
+    res.set('X-Storage-Tier', tierUsed);
     res.send(outputBuffer);
   } catch (err) {
     console.error('[Storage] Public download error:', err.message);
