@@ -45,7 +45,7 @@ export default function Login() {
   const springY = useSpring(mouse.y, { stiffness: 60, damping: 20 });
 
   useEffect(() => {
-    if (localStorage.getItem("token")) navigate("/dashboard");
+    if (localStorage.getItem("token")) navigate("/app/dashboard");
     const mo = (e) => setMouse({ x: e.clientX, y: e.clientY });
     window.addEventListener("mousemove", mo);
     return () => window.removeEventListener("mousemove", mo);
@@ -61,7 +61,7 @@ export default function Login() {
       const res = await axios.post("http://localhost:5000/api/auth/login", form);
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
-      navigate("/dashboard");
+      navigate("/app/dashboard");
     } catch (err) {
       setError(err?.response?.data?.message || "Login failed. Please check credentials.");
     } finally { setLoading(false); }

@@ -1,0 +1,549 @@
+const express = require('express');
+const router = express.Router();
+const authMiddleware = require('../middleware/authMiddleware');
+const StorageListing = require('../models/StorageListing');
+const { estimateSystemPricePerGB } = require('../services/pricingService');
+
+// @route POST /api/providers/register
+// @desc  Provider agent calls this on startup to register itself
+// @access Private (requires JWT)
+router.post('/register', authMiddleware, async (req, res) => {
+  // pricePerGB is intentionally ignored — the system determines pricing via AI
+  const { walletAddress, agentUrl, capacityGB, region, hardware } = req.body;
+  
+  // Capture IP address automatically
+  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress || req.ip;
+  if (hardware) {
+    hardware.ip = ip;
+  }
+
+  if (!walletAddress || !agentUrl || !capacityGB) {
+    return res.status(400).json({ message: 'Missing required fields: walletAddress, agentUrl, capacityGB' });
+  }
+
+  try {
+    const existing = await StorageListing.findOne({ providerId: req.user.id });
+    if (existing) {
+      existing.agentUrl   = agentUrl;
+      existing.capacityGB = capacityGB;
+      existing.region     = region || existing.region;
+      if (hardware) existing.hardware = hardware;
+      existing.isActive   = true;
+      existing.systemPricePerGB = estimateSystemPricePerGB(existing);
+      await existing.save();
+      return res.json({ message: 'Listing updated', listing: existing });
+    }
+
+    const initMetrics = { capacityGB, usedGB: 0, uptimePct: 100, latencyMs: 20, reputationScore: 100, region: region || 'local' };
+    const listing = new StorageListing({
+      providerId:       req.user.id,
+      walletAddress,
+      agentUrl,
+      capacityGB,
+      pricePerGB:       1,  // placeholder — not used by system
+      systemPricePerGB: estimateSystemPricePerGB(initMetrics),
+      region:           region || 'local',
+      hardware:         hardware || {},
+    });
+    await listing.save();
+    res.status(201).json({ message: 'Provider registered', listing });
+  } catch (err) {
+    console.error('[Providers] Register error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route GET /api/providers
+// @desc  Get all active storage providers
+// @access Private
+router.get('/', authMiddleware, async (req, res) => {
+  try {
+    const listings = await StorageListing.find({ isActive: true }).sort({ createdAt: -1 });
+    res.json(listings);
+  } catch (err) {
+    console.error('[Providers] List error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route GET /api/providers/me
+// @desc  Get the current user's own listing
+// @access Private
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'No listing found for this provider' });
+    res.json(listing);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route PUT /api/providers/heartbeat
+// @desc  Agent sends periodic heartbeat to update live stats
+// @access Private
+router.put('/heartbeat', authMiddleware, async (req, res) => {
+  const { usedGB, latencyMs, uptimePct } = req.body;
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'Provider not found. Register first.' });
+
+    if (usedGB    !== undefined) listing.usedGB    = usedGB;
+    if (latencyMs !== undefined) listing.latencyMs = latencyMs;
+    if (uptimePct !== undefined) listing.uptimePct = uptimePct;
+    listing.systemPricePerGB = estimateSystemPricePerGB(listing);
+    await listing.save();
+
+    res.json({ message: 'Heartbeat received' });
+  } catch (err) {
+    console.error('[Providers] Heartbeat error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route PUT /api/providers/deactivate
+// @desc  Provider goes offline — mark listing inactive
+// @access Private
+router.put('/deactivate', authMiddleware, async (req, res) => {
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'Provider not found' });
+    listing.isActive = false;
+    await listing.save();
+    res.json({ message: 'Provider deactivated' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route PUT /api/providers/update
+// @desc  Update provider node settings (capacity, price, region)
+// @access Private
+router.put('/update', authMiddleware, async (req, res) => {
+  // pricePerGB is intentionally ignored — providers cannot set their own price
+  const { capacityGB, region } = req.body;
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'Provider not found' });
+    if (capacityGB !== undefined) listing.capacityGB = capacityGB;
+    if (region     !== undefined) listing.region     = region;
+    listing.systemPricePerGB = estimateSystemPricePerGB(listing);
+    await listing.save();
+    res.json(listing);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route POST /api/providers/activate
+// @desc  Re-activate a deactivated listing
+// @access Private
+router.post('/activate', authMiddleware, async (req, res) => {
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'Provider not found' });
+    listing.isActive = true;
+    await listing.save();
+    res.json(listing);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route POST /api/providers/deactivate
+// @desc  Deactivate listing via POST (mirrors PUT/deactivate)
+// @access Private
+router.post('/deactivate', authMiddleware, async (req, res) => {
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'Provider not found' });
+    listing.isActive = false;
+    await listing.save();
+    res.json(listing);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW: Provider CLI Installation Registration Flow
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const Provider = require('../models/Provider');
+const ProviderEarning = require('../models/ProviderEarning');
+const ProviderWithdrawal = require('../models/ProviderWithdrawal');
+const { ethers } = require('ethers');
+let StoraTokenABI;
+try {
+  StoraTokenABI = require('../abi/StoraToken.json');
+} catch (e) {
+  console.warn('StoraToken  ABI not found');
+  StoraTokenABI = [];
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+const SEPOLIA_RPC = process.env.SEPOLIA_RPC_URL;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const STORATOKEN_ADDRESS = process.env.STORATOKEN_ADDRESS || process.env.TOKEN_CONTRACT_ADDRESS;
+
+// @route POST /api/provider-cli/register
+// @desc  Provider CLI installer registration (new provider signup)
+// @access Public
+router.post('/cli/register', async (req, res) => {
+  try {
+    const { email, password, machineId, deviceName } = req.body;
+
+    // Validation
+    if (!email || !password || !machineId) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    // Check if provider already exists
+    let provider = await Provider.findOne({ email });
+    if (provider) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
+
+    // Create provider account
+    provider = new Provider({
+      email,
+      password, // TODO: Hash in production
+      machineId,
+      deviceName,
+      status: 'setup',
+      wallet: { address: '' },
+    });
+
+    await provider.save();
+
+    console.log(`✓ Provider registered: ${email}`);
+
+    res.json({
+      success: true,
+      message: 'Registration successful',
+      providerId: provider._id,
+      walletAddress: provider.wallet?.address,
+    });
+  } catch (error) {
+    console.error('[Provider CLI] Register error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route POST /api/provider-cli/heartbeat
+// @desc  Provider service sends heartbeat with status
+// @access Public (provider service calls this)
+router.post('/cli/heartbeat', async (req, res) => {
+  try {
+    const { providerId, machineId, status, hdd, device, uptime, timestamp } = req.body;
+
+    const provider = await Provider.findById(providerId);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
+    }
+
+    // Update provider status
+    provider.lastHeartbeat = new Date();
+    provider.status = status;
+    provider.hdd = hdd;
+    provider.device = device;
+    provider.uptime = uptime;
+
+    await provider.save();
+
+    res.json({ success: true, message: 'Heartbeat received' });
+  } catch (error) {
+    console.error('[Provider CLI] Heartbeat error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route POST /api/provider-cli/:id/go-online
+// @desc  Provider goes online - mint registration + online bonus tokens
+// @access Public
+router.post('/cli/:id/go-online', async (req, res) => {
+  try {
+    const { id: providerId } = req.params;
+    const { hddTotalGB, walletAddress } = req.body;
+
+    const provider = await Provider.findById(providerId);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
+    }
+
+    // Set wallet if provided
+    if (walletAddress) {
+      provider.wallet.address = walletAddress;
+    }
+
+    if (!provider.wallet.address) {
+      return res.status(400).json({ success: false, message: 'Wallet address required' });
+    }
+
+    // Update status
+    provider.status = 'online';
+    provider.hdd.totalGB = hddTotalGB || provider.hdd.totalGB;
+    provider.onlineAt = new Date();
+
+    await provider.save();
+
+    // Mint tokens (registration 0.1 + online 0.2 = 0.3 SCT)
+    let txHash = null;
+    try {
+      txHash = await mintTokens(provider.wallet.address, '0.3');
+
+      await ProviderEarning.create({
+        providerId: provider._id,
+        amount: 0.3,
+        type: 'registration_bonus',
+        description: 'Registration bonus (0.1 SCT) + Online bonus (0.2 SCT)',
+        transactionHash: txHash,
+      });
+
+      console.log(`✓ Provider ${provider.email} went online, minted 0.3 SCT`);
+    } catch (mintError) {
+      console.error('[Mint] Error:', mintError.message);
+      // Continue - provider goes online even if minting fails
+    }
+
+    res.json({
+      success: true,
+      message: 'Provider is now online!',
+      bonus: '0.3 SCT',
+      provider: {
+        _id: provider._id,
+        status: provider.status,
+        wallet: provider.wallet.address,
+        onlineAt: provider.onlineAt,
+      },
+      txHash,
+    });
+  } catch (error) {
+    console.error('[Provider CLI] Go online error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route POST /api/provider-cli/:id/go-offline
+// @desc  Provider goes offline
+// @access Public
+router.post('/cli/:id/go-offline', async (req, res) => {
+  try {
+    const { id: providerId } = req.params;
+
+    const provider = await Provider.findByIdAndUpdate(
+      providerId,
+      { status: 'offline', offlineAt: new Date() },
+      { new: true }
+    );
+
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
+    }
+
+    console.log(`✓ Provider ${provider.email} went offline`);
+
+    res.json({ success: true, provider });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route GET /api/provider-cli/:id/dashboard
+// @desc  Get provider dashboard info (status, earnings, device info)
+// @access Public
+router.get('/cli/:id/dashboard', async (req, res) => {
+  try {
+    const { id: providerId } = req.params;
+
+    const provider = await Provider.findById(providerId);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
+    }
+
+    // Get earnings
+    const earnings = await ProviderEarning.find({ providerId }).sort({ createdAt: -1 });
+    const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
+
+    // Get withdrawals
+    const withdrawals = await ProviderWithdrawal.find({ providerId }).sort({ createdAt: -1 });
+    const totalWithdrawn = withdrawals
+      .filter((w) => w.status === 'completed')
+      .reduce((sum, w) => sum + w.amount, 0);
+
+    res.json({
+      success: true,
+      provider: {
+        _id: provider._id,
+        email: provider.email,
+        status: provider.status,
+        wallet: provider.wallet.address,
+        hdd: provider.hdd,
+        device: provider.device,
+        onlineAt: provider.onlineAt,
+        uptime: provider.uptime,
+      },
+      earnings: {
+        total: totalEarnings,
+        records: earnings.slice(0, 20),
+      },
+      withdrawals: withdrawals.slice(0, 10),
+      balance: {
+        total: totalEarnings,
+        withdrawn: totalWithdrawn,
+        available: totalEarnings - totalWithdrawn,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route POST /api/provider-cli/:id/withdraw
+// @desc  Request withdrawal (transfer SCT to provider wallet)
+// @access Public
+router.post('/cli/:id/withdraw', async (req, res) => {
+  try {
+    const { id: providerId } = req.params;
+    const { amount } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid withdrawal amount' });
+    }
+
+    const provider = await Provider.findById(providerId);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
+    }
+
+    if (!provider.wallet.address) {
+      return res.status(400).json({ success: false, message: 'Wallet not configured' });
+    }
+
+    // Get available balance
+    const earnings = await ProviderEarning.find({ providerId });
+    const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
+
+    const withdrawals = await ProviderWithdrawal.find({ providerId, status: 'completed' });
+    const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+    const availableBalance = totalEarnings - totalWithdrawn;
+
+    if (availableBalance < amount) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient balance. Available: ${availableBalance.toFixed(4)} SCT`,
+      });
+    }
+
+    // Create withdrawal request
+    const withdrawal = new ProviderWithdrawal({
+      providerId,
+      amount,
+      walletAddress: provider.wallet.address,
+      status: 'pending',
+    });
+
+    await withdrawal.save();
+
+    // Process withdrawal (transfer SCT from backend wallet)
+    try {
+      const txHash = await transferTokens(provider.wallet.address, amount.toString());
+
+      withdrawal.transactionHash = txHash;
+      withdrawal.status = 'completed';
+      withdrawal.completedAt = new Date();
+      await withdrawal.save();
+
+      console.log(`✓ Withdrawal processed: ${amount} SCT to ${provider.email}`);
+
+      res.json({
+        success: true,
+        message: 'Withdrawal processed',
+        withdrawal,
+        txHash,
+      });
+    } catch (txError) {
+      withdrawal.status = 'failed';
+      withdrawal.error = txError.message;
+      await withdrawal.save();
+
+      console.error('[Withdrawal] TX error:', txError.message);
+
+      res.status(500).json({
+        success: false,
+        message: 'Withdrawal transaction failed',
+        error: txError.message,
+        withdrawalId: withdrawal._id,
+      });
+    }
+  } catch (error) {
+    console.error('[Provider CLI] Withdraw error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─── Helper Functions ───────────────────────────────────────────────────
+
+// Mint SCT tokens to provider wallet
+async function mintTokens(toAddress, amountSCT) {
+  if (!SEPOLIA_RPC || !PRIVATE_KEY || !STORATOKEN_ADDRESS) {
+    console.warn('[Mint] Skipped: Missing env vars (SEPOLIA_RPC_URL, PRIVATE_KEY, STORATOKEN_ADDRESS)');
+    return null;
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC);
+    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const sct = new ethers.Contract(STORATOKEN_ADDRESS, StoraTokenABI, wallet);
+
+    const amount = ethers.parseUnits(amountSCT, 18);
+    const tx = await sct.mint(toAddress, amount);
+    const receipt = await tx.wait();
+
+    console.log(`✓ Minted ${amountSCT} SCT to ${toAddress}`);
+    console.log(`  TX: ${receipt.transactionHash}`);
+
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error('[Mint] Error:', error.message);
+    throw error;
+  }
+}
+
+// Transfer SCT from backend wallet to provider
+async function transferTokens(toAddress, amountSCT) {
+  if (!SEPOLIA_RPC || !PRIVATE_KEY || !STORATOKEN_ADDRESS) {
+    throw new Error('Token transfer not configured (missing env vars)');
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC);
+    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const sct = new ethers.Contract(STORATOKEN_ADDRESS, StoraTokenABI, wallet);
+
+    const amount = ethers.parseUnits(amountSCT, 18);
+
+    // Check balance
+    const walletAddr = await wallet.getAddress();
+    const balance = await sct.balanceOf(walletAddr);
+
+    if (balance < amount) {
+      throw new Error(
+        `Insufficient SCT in backend wallet. Have: ${ethers.formatUnits(balance, 18)}, Need: ${amountSCT}`
+      );
+    }
+
+    const tx = await sct.transfer(toAddress, amount);
+    const receipt = await tx.wait();
+
+    console.log(`✓ Transferred ${amountSCT} SCT to ${toAddress}`);
+    console.log(`  TX: ${receipt.transactionHash}`);
+
+    return receipt.transactionHash;
+  } catch (error) {
+    console.error('[Transfer] Error:', error.message);
+    throw error;
+  }
+}
+
+module.exports = router;

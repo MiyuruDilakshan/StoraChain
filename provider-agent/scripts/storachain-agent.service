@@ -1,0 +1,18 @@
+[Unit]
+Description=StoraChain Provider Agent
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/storachain/provider-agent
+EnvironmentFile=/opt/storachain/provider-agent/.env
+ExecStart=/usr/bin/node /opt/storachain/provider-agent/agent.js --space 20 --port 3001 --wallet ${WALLET_ADDRESS}
+Restart=on-failure
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=storachain-agent
+
+[Install]
+WantedBy=multi-user.target

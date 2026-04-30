@@ -5,7 +5,7 @@ pragma solidity ^0.8.20;
  * @title StoraChainStorage
  * @dev StoraChain – Final Year Project
  *      Decentralized storage registry on Ethereum (Sepolia Testnet).
- *      Records file metadata uploaded by users: CID, filename, size, timestamp.
+ *      Records file metadata, provider assignments, downloads, and reward cycles.
  */
 contract StoraChainStorage {
 
@@ -19,13 +19,10 @@ contract StoraChainStorage {
     }
 
     // ─── State ──────────────────────────────────────────────────────────────
-    // Mapping: user address → list of their uploaded file records
     mapping(address => FileRecord[]) private userFiles;
-
-    // Total files stored across all users
     uint256 public totalFilesStored;
 
-    // ─── Events ─────────────────────────────────────────────────────────────
+    // ─── Events (legacy) ────────────────────────────────────────────────────
     event FileUploaded(
         address indexed uploader,
         string  cid,
@@ -40,13 +37,42 @@ contract StoraChainStorage {
         uint256 timestamp
     );
 
-    // ─── Functions ──────────────────────────────────────────────────────────
+    // ─── Events (new) ───────────────────────────────────────────────────────
 
     /**
-     * @notice Store a new file record on-chain.
-     * @param _cid       IPFS / storage CID of the file
-     * @param _fileName  Display name of the file
-     * @param _fileSize  Size of the file in bytes
+     * @dev Emitted by storeFile() — full provider assignment record.
+     */
+    event FileStored(
+        bytes32 indexed fileHash,
+        string          cid,
+        address indexed seekerWallet,
+        address[]       providerWallets,
+        uint256         fileSize,
+        uint256         timestamp
+    );
+
+    /**
+     * @dev Emitted by recordDownload().
+     */
+    event FileDownloaded(
+        bytes32 indexed fileHash,
+        address indexed downloader,
+        uint256         timestamp
+    );
+
+    /**
+     * @dev Emitted by recordReward() for each provider paid in a reward cycle.
+     */
+    event RewardDistributed(
+        address indexed providerWallet,
+        uint256         amountSCT,
+        uint256         timestamp
+    );
+
+    // ─── Functions (legacy) ─────────────────────────────────────────────────
+
+    /**
+     * @notice Store a new file record on-chain (legacy — seeker is msg.sender).
      */
     function uploadFile(
         string memory _cid,
@@ -71,32 +97,20 @@ contract StoraChainStorage {
         emit FileUploaded(msg.sender, _cid, _fileName, _fileSize, block.timestamp);
     }
 
-    /**
-     * @notice Get all file records belonging to the caller.
-     * @return Array of FileRecord structs
-     */
     function getMyFiles() external view returns (FileRecord[] memory) {
         return userFiles[msg.sender];
     }
 
-    /**
-     * @notice Get the number of files stored by the caller.
-     */
     function getMyFileCount() external view returns (uint256) {
         return userFiles[msg.sender].length;
     }
 
-    /**
-     * @notice Delete a file record by index (caller only).
-     * @param _index Index in the caller's file array
-     */
     function deleteFile(uint256 _index) external {
         FileRecord[] storage files = userFiles[msg.sender];
         require(_index < files.length, "Index out of bounds");
 
         string memory deletedCid = files[_index].cid;
 
-        // Swap with last element and pop to avoid gaps
         files[_index] = files[files.length - 1];
         files.pop();
 
@@ -104,4 +118,60 @@ contract StoraChainStorage {
 
         emit FileDeleted(msg.sender, deletedCid, block.timestamp);
     }
+
+    // ─── Functions (new) ────────────────────────────────────────────────────
+
+    /**
+     * @notice Record a full file upload with provider assignments.
+     * @param fileHash        SHA-256 hash of the original plaintext (as bytes32)
+     * @param cid             IPFS / Pinata CID of the encrypted file
+     * @param seekerWallet    Wallet address of the file owner / uploader
+     * @param providerWallets Array of provider wallet addresses that store chunks
+     * @param fileSize        Size of the original file in bytes
+     */
+    function storeFile(
+        bytes32         fileHash,
+        string  memory  cid,
+        address         seekerWallet,
+        address[] memory providerWallets,
+        uint256         fileSize
+    ) external {
+        require(fileHash  != bytes32(0),       "fileHash cannot be zero");
+        require(fileSize  >  0,                "fileSize must be > 0");
+        require(seekerWallet != address(0),    "invalid seeker wallet");
+
+        totalFilesStored++;
+
+        emit FileStored(
+            fileHash,
+            cid,
+            seekerWallet,
+            providerWallets,
+            fileSize,
+            block.timestamp
+        );
+    }
+
+    /**
+     * @notice Record a file download event.
+     * @param fileHash   SHA-256 hash identifying the file
+     * @param downloader Wallet address of the downloader
+     */
+    function recordDownload(bytes32 fileHash, address downloader) external {
+        require(fileHash   != bytes32(0),   "fileHash cannot be zero");
+        require(downloader != address(0),   "invalid downloader address");
+
+        emit FileDownloaded(fileHash, downloader, block.timestamp);
+    }
+
+    /**
+     * @notice Emit reward distribution event for a provider.
+     * @param providerWallet Provider wallet that received SCT
+     * @param amountSCT      Amount of SCT minted (in wei units)
+     */
+    function recordReward(address providerWallet, uint256 amountSCT) external {
+        require(providerWallet != address(0), "invalid provider wallet");
+        emit RewardDistributed(providerWallet, amountSCT, block.timestamp);
+    }
 }
+

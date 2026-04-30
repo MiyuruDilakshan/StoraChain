@@ -1,0 +1,475 @@
+.provider-setup {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  gap: 30px;
+  padding: 40px 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.setup-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.setup-step {
+  background: white;
+  border-radius: 16px;
+  padding: 48px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  max-width: 600px;
+  width: 100%;
+  animation: slideIn 0.4s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.setup-icon {
+  font-size: 60px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.setup-step h1 {
+  margin: 0 0 12px 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+  text-align: center;
+}
+
+.setup-step > p {
+  text-align: center;
+  color: #6b7280;
+  font-size: 16px;
+  margin: 0 0 32px 0;
+}
+
+/* Welcome Step */
+.welcome-step .setup-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 32px 0;
+}
+
+.feature {
+  text-align: center;
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+}
+
+.feature-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.feature h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.feature p {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Download Step */
+.installation-options {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 24px 0;
+}
+
+.install-option {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border-left: 4px solid #667eea;
+}
+
+.install-option:last-child {
+  margin-bottom: 0;
+}
+
+.install-option h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.install-option p {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.install-option code {
+  display: block;
+  background: #1f2937;
+  color: #10b981;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 12px;
+}
+
+.btn-copy {
+  padding: 6px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.btn-copy:hover {
+  background: #5568d3;
+}
+
+.setup-checklist {
+  background: #f0fdf4;
+  border-left: 4px solid #10b981;
+  padding: 16px;
+  border-radius: 8px;
+  margin: 24px 0;
+}
+
+.setup-checklist h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.setup-checklist ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.setup-checklist li {
+  padding: 6px 0;
+  font-size: 13px;
+  color: #166534;
+}
+
+.setup-checklist li::before {
+  content: '✓ ';
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+/* Login Step */
+.login-form {
+  transform: scale(1);
+}
+
+.login-form .form-group {
+  margin-bottom: 20px;
+}
+
+.login-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.login-form input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  color: #1f2937;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.login-form input:disabled {
+  background: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  border-left: 4px solid #dc2626;
+}
+
+.login-hint {
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  margin: 20px 0 0 0;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Buttons */
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-block {
+  width: 100%;
+  display: block;
+}
+
+.btn-secondary {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #d1d5db;
+}
+
+.setup-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.setup-buttons .btn {
+  flex: 1;
+}
+
+/* Side Info */
+.setup-side-info {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  height: fit-content;
+  sticky: 'top';
+  top: 40px;
+}
+
+.setup-side-info h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.workflow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.workflow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.workflow-step.active {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.workflow-step.done {
+  color: #10b981;
+}
+
+.step-number {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.workflow-step.active .step-number {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.workflow-step.done .step-number {
+  background: #10b981;
+  color: white;
+}
+
+.workflow-arrow {
+  font-size: 16px;
+  color: #d1d5db;
+}
+
+/* FAQ */
+.faq {
+  border-top: 2px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+.faq h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.faq-item {
+  margin-bottom: 12px;
+}
+
+.faq-item:last-child {
+  margin-bottom: 0;
+}
+
+.faq-item h4 {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.faq-item p {
+  margin: 0;
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .provider-setup {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .setup-side-info {
+    position: sticky;
+    top: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .provider-setup {
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .setup-step {
+    padding: 32px 20px;
+  }
+
+  .setup-step h1 {
+    font-size: 22px;
+  }
+
+  .setup-icon {
+    font-size: 48px;
+  }
+
+  .welcome-step .setup-features {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-buttons {
+    flex-direction: column;
+  }
+
+  .setup-buttons .btn {
+    width: 100%;
+  }
+
+  .login-form {
+    margin: 0;
+  }
+
+  .workflow {
+    flex-direction: row;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .workflow-step {
+    font-size: 10px;
+  }
+
+  .step-number {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .workflow-arrow {
+    display: none;
+  }
+}
