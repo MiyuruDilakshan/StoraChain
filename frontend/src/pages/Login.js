@@ -61,7 +61,12 @@ export default function Login() {
       const res = await axios.post("http://localhost:5000/api/auth/login", form);
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
-      navigate("/app/dashboard");
+      // Route admins to the admin dashboard, others to the app
+      if (res.data.user?.role === 'admin') {
+        navigate("/admin");
+      } else {
+        navigate("/app/dashboard");
+      }
     } catch (err) {
       setError(err?.response?.data?.message || "Login failed. Please check credentials.");
     } finally { setLoading(false); }

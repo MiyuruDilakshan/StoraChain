@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FolderOpen, Upload,
   ShoppingBag, BarChart2, Wallet, Terminal,
-  User, HardDrive, LogOut, Coins, ShieldAlert, CreditCard,
+  User, HardDrive, LogOut, Coins, ShieldAlert, CreditCard, Shield,
 } from 'lucide-react';
 
 const SIDEBAR_W = 220;
@@ -33,16 +33,24 @@ const providerNav = [
   { to: '/app/profile',     icon: <User            size={17} />, label: 'Profile'         },
 ];
 
+// Admin nav — only admin-relevant links
+const adminNav = [
+  { to: '/admin',           icon: <Shield      size={17} />, label: 'Admin Dashboard', end: true },
+  { to: '/app/marketplace', icon: <ShoppingBag size={17} />, label: 'Marketplace'    },
+];
+
 export default function Sidebar({ user }) {
   const navigate = useNavigate();
-  const isProvider = user?.role === 'provider';
-  const accent = isProvider ? '#30d158' : '#2997ff';
-  const navItems = isProvider ? providerNav : seekerNav;
+  const role      = user?.role || 'seeker';
+  const isProvider = role === 'provider';
+  const isAdmin    = role === 'admin';
 
-  const initial = (user?.name || 'U').charAt(0).toUpperCase();
-  const avatarBg = user?.avatarColor || '#bf5af2';
+  const accent    = isAdmin ? '#bf5af2' : isProvider ? '#30d158' : '#2997ff';
+  const navItems  = isAdmin ? adminNav : isProvider ? providerNav : seekerNav;
 
-  const plan = user?.plan || 'free';
+  const initial   = (user?.name || 'U').charAt(0).toUpperCase();
+  const avatarBg  = user?.avatarColor || '#bf5af2';
+  const plan      = user?.plan || 'free';
   const planColor = PLAN_COLORS[plan] || '#30d158';
   const planLabel = PLAN_LABELS[plan] || 'Free';
 
@@ -51,6 +59,8 @@ export default function Sidebar({ user }) {
     localStorage.removeItem('user');
     navigate('/login');
   };
+
+  const homeRoute = isAdmin ? '/admin' : '/app/dashboard';
 
   return (
     <div style={{
@@ -66,7 +76,7 @@ export default function Sidebar({ user }) {
       <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div
           style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}
-          onClick={() => navigate('/app/dashboard')}
+          onClick={() => navigate(homeRoute)}
         >
           <div style={{
             width: 30, height: 30, borderRadius: 8,
@@ -86,8 +96,8 @@ export default function Sidebar({ user }) {
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '10px 12px',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: isAdmin ? 'rgba(191,90,242,0.07)' : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${isAdmin ? 'rgba(191,90,242,0.2)' : 'rgba(255,255,255,0.08)'}`,
           borderRadius: 12,
         }}>
           <div style={{
@@ -106,45 +116,52 @@ export default function Sidebar({ user }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%', background: accent }} />
               <span style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: accent }}>
-                {user?.role || 'seeker'}
+                {role}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Wallet row: SCT + plan badge */}
-        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-          <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', gap: 5,
-            padding: '6px 10px',
-            background: 'rgba(255,159,10,0.08)',
-            border: '1px solid rgba(255,159,10,0.15)',
-            borderRadius: 8,
-          }}>
-            <Coins size={12} color="#ff9f0a" />
-            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#ff9f0a' }}>
-              {user?.sctBalance ?? '—'} SCT
-            </span>
-          </div>
-
-          {/* Plan badge (seekers only) */}
-          {!isProvider && (
-            <div
-              onClick={() => navigate('/app/plans')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '6px 10px',
-                background: `${planColor}10`,
-                border: `1px solid ${planColor}30`,
-                borderRadius: 8, cursor: 'pointer',
-              }}
-              title="Manage plan"
-            >
-              <CreditCard size={11} color={planColor} />
-              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: planColor }}>{planLabel}</span>
+        {/* Non-admin: wallet + plan badge */}
+        {!isAdmin && (
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <div style={{
+              flex: 1, display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 10px',
+              background: 'rgba(255,159,10,0.08)',
+              border: '1px solid rgba(255,159,10,0.15)',
+              borderRadius: 8,
+            }}>
+              <Coins size={12} color="#ff9f0a" />
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#ff9f0a' }}>
+                {user?.sctBalance ?? '—'} SCT
+              </span>
             </div>
-          )}
-        </div>
+            {!isProvider && (
+              <div
+                onClick={() => navigate('/app/plans')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '6px 10px',
+                  background: `${planColor}10`,
+                  border: `1px solid ${planColor}30`,
+                  borderRadius: 8, cursor: 'pointer',
+                }}
+                title="Manage plan"
+              >
+                <CreditCard size={11} color={planColor} />
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: planColor }}>{planLabel}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Admin: special badge */}
+        {isAdmin && (
+          <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.25)', borderRadius: 8, textAlign: 'center' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#bf5af2', letterSpacing: '0.07em' }}>⚡ Full System Access</span>
+          </div>
+        )}
       </div>
 
       {/* Nav separator */}
@@ -154,8 +171,9 @@ export default function Sidebar({ user }) {
       <nav style={{ flex: 1, padding: '0 10px', overflowY: 'auto' }}>
         {navItems.map((item) => (
           <NavLink
-            key={item.to}
+            key={item.to + (item.end ? '_end' : '')}
             to={item.to}
+            end={item.end}
             style={({ isActive }) => ({
               display:        'flex',
               alignItems:     'center',
@@ -178,7 +196,7 @@ export default function Sidebar({ user }) {
         ))}
       </nav>
 
-      {/* Bottom separator + logout */}
+      {/* Bottom: logout */}
       <div style={{ padding: '12px 10px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <button
           onClick={handleLogout}

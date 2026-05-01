@@ -487,9 +487,10 @@ function FilesTab({ files }) {
           <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)' }}>{f.userId?.name || '—'}</div>
           <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.55)' }}>{fmtBytes(f.fileSize)}</div>
           <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>{f.createdAt ? fmtDate(f.createdAt) : '—'}</div>
-          <div style={{ display: 'flex', gap: 5 }}>
-            {f.cid && <a href={`https://gateway.pinata.cloud/ipfs/${f.cid}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.64rem', padding: '2px 7px', background: 'rgba(41,151,255,0.1)', border: '1px solid rgba(41,151,255,0.25)', borderRadius: 6, color: '#2997ff', textDecoration: 'none', fontWeight: 700 }}>IPFS</a>}
-            {f.txHash && <a href={`https://sepolia.etherscan.io/tx/${f.txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.64rem', padding: '2px 7px', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.25)', borderRadius: 6, color: '#bf5af2', textDecoration: 'none', fontWeight: 700 }}>ETH</a>}
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+            {f.ipfsCid && <a href={`https://gateway.pinata.cloud/ipfs/${f.ipfsCid}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.64rem', padding: '2px 7px', background: 'rgba(41,151,255,0.1)', border: '1px solid rgba(41,151,255,0.25)', borderRadius: 6, color: '#2997ff', textDecoration: 'none', fontWeight: 700 }}>IPFS</a>}
+            {(f.onChainTxHash || f.txHash) && <a href={`https://sepolia.etherscan.io/tx/${f.onChainTxHash || f.txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.64rem', padding: '2px 7px', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.25)', borderRadius: 6, color: '#bf5af2', textDecoration: 'none', fontWeight: 700 }}>ETH</a>}
+            {!f.ipfsCid && !(f.onChainTxHash || f.txHash) && <span style={{ fontSize: '0.64rem', color: 'rgba(255,255,255,0.2)' }}>local</span>}
           </div>
           <Badge v={f.chunkHealth || 'healthy'} map={HEALTH_MAP} />
         </div>

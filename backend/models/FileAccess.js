@@ -7,7 +7,7 @@ const FileAccessSchema = new mongoose.Schema({
   listingId:    { type: mongoose.Schema.Types.ObjectId, ref: 'MarketplaceListing', default: null  },
   grantedAt:    { type: Date,    default: Date.now },
   txHash:       { type: String,  default: '' },
-  accessType:   { type: String,  enum: ['purchase', 'share'], required: true },
+  accessType:   { type: String,  enum: ['purchase', 'share', 'free'], required: true },
   isActive:     { type: Boolean, default: true },
 });
 

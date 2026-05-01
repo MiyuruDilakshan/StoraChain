@@ -147,11 +147,12 @@ router.post('/list', authMiddleware, async (req, res) => {
     });
     await listing.save();
 
-    // Mirror marketplace metadata back to the FileRecord
+    // Mirror marketplace metadata back to the FileRecord + set visibility to 'shared'
     await FileRecord.findByIdAndUpdate(fileRecord._id, {
       marketplaceTitle:    title.trim(),
       marketplaceDesc:     description?.trim() || '',
       marketplaceCategory: category || categoryFromMime(fileRecord.mimeType),
+      visibility:          'shared',  // make share link accessible
     });
 
     res.status(201).json({ message: 'Listing created', listing, isPrivate: false });
