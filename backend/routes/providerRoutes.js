@@ -17,8 +17,8 @@ router.post('/register', authMiddleware, async (req, res) => {
     hardware.ip = ip;
   }
 
-  if (!walletAddress || !agentUrl || !capacityGB) {
-    return res.status(400).json({ message: 'Missing required fields: walletAddress, agentUrl, capacityGB' });
+  if (!agentUrl || !capacityGB) {
+    return res.status(400).json({ message: 'Missing required fields: agentUrl, capacityGB' });
   }
 
   try {
@@ -27,6 +27,7 @@ router.post('/register', authMiddleware, async (req, res) => {
       existing.agentUrl   = agentUrl;
       existing.capacityGB = capacityGB;
       existing.region     = region || existing.region;
+      if (walletAddress) existing.walletAddress = walletAddress;
       if (hardware) existing.hardware = hardware;
       existing.isActive   = true;
       existing.systemPricePerGB = estimateSystemPricePerGB(existing);
@@ -37,7 +38,7 @@ router.post('/register', authMiddleware, async (req, res) => {
     const initMetrics = { capacityGB, usedGB: 0, uptimePct: 100, latencyMs: 20, reputationScore: 100, region: region || 'local' };
     const listing = new StorageListing({
       providerId:       req.user.id,
-      walletAddress,
+      walletAddress:    walletAddress || '',
       agentUrl,
       capacityGB,
       pricePerGB:       1,  // placeholder — not used by system
@@ -120,13 +121,14 @@ router.put('/deactivate', authMiddleware, async (req, res) => {
 // @desc  Update provider node settings (capacity, price, region)
 // @access Private
 router.put('/update', authMiddleware, async (req, res) => {
-  // pricePerGB is intentionally ignored — providers cannot set their own price
-  const { capacityGB, region } = req.body;
+  const { capacityGB, region, walletAddress, diskPath } = req.body;
   try {
     const listing = await StorageListing.findOne({ providerId: req.user.id });
     if (!listing) return res.status(404).json({ message: 'Provider not found' });
-    if (capacityGB !== undefined) listing.capacityGB = capacityGB;
-    if (region     !== undefined) listing.region     = region;
+    if (capacityGB    !== undefined) listing.capacityGB    = capacityGB;
+    if (region        !== undefined) listing.region        = region;
+    if (walletAddress !== undefined) listing.walletAddress = walletAddress;
+    if (diskPath      !== undefined) { listing.hardware = listing.hardware || {}; listing.hardware.diskPath = diskPath; }
     listing.systemPricePerGB = estimateSystemPricePerGB(listing);
     await listing.save();
     res.json(listing);
@@ -545,5 +547,27 @@ async function transferTokens(toAddress, amountSCT) {
     throw error;
   }
 }
+
+// ── GET /api/providers/disk-info ─────────────────────────────────────────
+// Fetches disk information from the running provider agent.
+// The agent must expose GET /disk-info returning { disks: [{name,mountpoint,totalGB,freeGB}] }
+router.get('/disk-info', authMiddleware, async (req, res) => {
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'No provider registration found. Install the agent first.' });
+    const agentUrl = listing.agentUrl || 'http://localhost:3001';
+    try {
+      const { default: axios } = await import('axios');
+      const { data } = await axios.get(`${agentUrl}/disk-info`, { timeout: 5000 });
+      return res.json(data);
+    } catch (agentErr) {
+      // Agent offline — return placeholder message
+      return res.status(503).json({ message: 'Agent offline or not responding. Please ensure the StoraChain agent is running.', agentUrl });
+    }
+  } catch (err) {
+    console.error('[Providers] disk-info error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

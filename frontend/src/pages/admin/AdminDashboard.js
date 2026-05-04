@@ -393,7 +393,7 @@ function ProvidersTab({ providers, onStatusChange }) {
         const isExp = expanded === (p._id || i);
         const usedPct = p.capacityGB > 0 ? (p.usedGB / p.capacityGB) * 100 : 0;
         const barColor = usedPct > 80 ? '#ff375f' : usedPct > 60 ? '#ff9f0a' : '#30d158';
-        const statusKey = p.isActive ? 'active' : 'suspended';
+        const statusKey = (p.isActive === false) ? 'suspended' : 'active';
         return (
           <React.Fragment key={p._id || i}>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.2fr 1fr 1fr 1fr 100px', gap: 8, padding: '14px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', cursor: 'pointer' }}
@@ -414,15 +414,13 @@ function ProvidersTab({ providers, onStatusChange }) {
               <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#2997ff' }}>{p.uptimePct ?? 0}%</div>
               <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ff9f0a' }}>{(p.totalEarnings || 0).toFixed(2)}</div>
               <Badge v={statusKey} map={STATUS_MAP} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <select value={statusKey} onChange={e => { e.stopPropagation(); handleStatus(p._id, e.target.value); }} disabled={updating === p._id}
-                  onClick={e => e.stopPropagation()}
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, color: 'rgba(255,255,255,0.7)', fontSize: '0.72rem', padding: '4px 6px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <option value="active">Active</option>
-                  <option value="suspended">Suspend</option>
-                  <option value="banned">Ban</option>
-                </select>
-                {isExp ? <ChevronUp size={14} color="rgba(255,255,255,0.3)" /> : <ChevronDown size={14} color="rgba(255,255,255,0.3)" />}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={e => e.stopPropagation()}>
+                {statusKey === 'active'
+                  ? <button disabled={updating === p._id} onClick={e=>{e.stopPropagation();handleStatus(p._id,'suspended');}} style={{ padding:'3px 8px', background:'rgba(255,159,10,0.1)', border:'1px solid rgba(255,159,10,0.3)', borderRadius:6, color:'#ff9f0a', fontSize:'0.66rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Suspend</button>
+                  : <button disabled={updating === p._id} onClick={e=>{e.stopPropagation();handleStatus(p._id,'active');}} style={{ padding:'3px 8px', background:'rgba(48,209,88,0.1)', border:'1px solid rgba(48,209,88,0.3)', borderRadius:6, color:'#30d158', fontSize:'0.66rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Activate</button>
+                }
+                <button disabled={updating === p._id} onClick={e=>{e.stopPropagation();if(window.confirm('Ban this provider?'))handleStatus(p._id,'banned');}} style={{ padding:'3px 8px', background:'rgba(255,55,95,0.08)', border:'1px solid rgba(255,55,95,0.25)', borderRadius:6, color:'#ff375f', fontSize:'0.66rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Ban</button>
+                {isExp ? <ChevronUp size={13} color="rgba(255,255,255,0.3)" /> : <ChevronDown size={13} color="rgba(255,255,255,0.3)" />}
               </div>
             </div>
             <AnimatePresence>

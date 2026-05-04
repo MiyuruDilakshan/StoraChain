@@ -62,10 +62,9 @@ const STORAGE_DIR  = getArg('--dir', process.env.STORAGE_DIR || './storachain-st
 const SHOULD_UNINSTALL = getFlag('--uninstall');
 
 // ── Validate required args ────────────────────────────────────────
-if (!WALLET && !SHOULD_UNINSTALL) {
-  console.error('\n[Agent] ERROR: Wallet address is required.');
-  console.error('[Agent] Usage: node agent.js --wallet 0xYourAddress --space 20\n');
-  process.exit(1);
+if (!AGENT_JWT && !WALLET) {
+  console.warn('\n[Agent] No JWT or wallet found. Agent will start but registration is skipped.');
+  console.warn('[Agent] Complete setup from your StoraChain provider dashboard.\n');
 }
 
 if (isNaN(PORT) || PORT < 1024 || PORT > 65535) {

@@ -1,4 +1,8 @@
-import React, { useEffect, useState } from 'react';
+const fs = require('fs');
+const path = require('path');
+
+// Write MyStorageNode.js
+const nodePageCode = `import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { HardDrive, CheckCircle, AlertCircle, RefreshCw, Wifi, WifiOff, Coins, Save, Disc, Info } from 'lucide-react';
 import api from '../../api/client';
@@ -8,7 +12,7 @@ const FV = { hidden:{opacity:0,y:20}, show:{opacity:1,y:0,transition:{duration:0
 function Toast({ msg, err }) {
   if (!msg) return null;
   return (
-    <div style={{ position:'fixed', top:24, right:24, zIndex:9999, padding:'12px 20px', background: err?'rgba(255,55,95,0.15)':'rgba(48,209,88,0.12)', border:`1px solid ${err?'rgba(255,55,95,0.4)':'rgba(48,209,88,0.35)'}`, borderRadius:12, color: err?'#ff375f':'#30d158', fontSize:'0.88rem', fontWeight:700, backdropFilter:'blur(12px)', boxShadow:'0 8px 32px rgba(0,0,0,0.3)', display:'flex', alignItems:'center', gap:8 }}>
+    <div style={{ position:'fixed', top:24, right:24, zIndex:9999, padding:'12px 20px', background: err?'rgba(255,55,95,0.15)':'rgba(48,209,88,0.12)', border:\`1px solid \${err?'rgba(255,55,95,0.4)':'rgba(48,209,88,0.35)'}\`, borderRadius:12, color: err?'#ff375f':'#30d158', fontSize:'0.88rem', fontWeight:700, backdropFilter:'blur(12px)', boxShadow:'0 8px 32px rgba(0,0,0,0.3)', display:'flex', alignItems:'center', gap:8 }}>
       {err ? <AlertCircle size={15}/> : <CheckCircle size={15}/>} {msg}
     </div>
   );
@@ -16,7 +20,7 @@ function Toast({ msg, err }) {
 
 function StatCard({ label, value, accent, icon }) {
   return (
-    <div style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${accent}22`, borderRadius:14, padding:'18px 20px', display:'flex', alignItems:'center', gap:14 }}>
+    <div style={{ background:'rgba(255,255,255,0.03)', border:\`1px solid \${accent}22\`, borderRadius:14, padding:'18px 20px', display:'flex', alignItems:'center', gap:14 }}>
       <div style={{ width:40, height:40, borderRadius:10, background:accent+'18', display:'flex', alignItems:'center', justifyContent:'center' }}>{icon}</div>
       <div>
         <div style={{ fontSize:'1.35rem', fontWeight:900, color:accent, lineHeight:1 }}>{value}</div>
@@ -43,7 +47,7 @@ export default function MyStorageNode({ user }) {
   const [form, setForm] = useState({ capacityGB:'', walletAddress:'', region:'local', diskPath:'' });
 
   const showMsg = (m, err=false) => { setToast(m); setToastErr(err); setTimeout(()=>setToast(''), 4000); };
-  const fmtGB = v => v >= 1 ? `${Number(v).toFixed(1)} GB` : `${(v*1024).toFixed(0)} MB`;
+  const fmtGB = v => v >= 1 ? \`\${Number(v).toFixed(1)} GB\` : \`\${(v*1024).toFixed(0)} MB\`;
   const usedPct = node ? Math.min((node.usedGB||0)/(node.capacityGB||1)*100, 100) : 0;
   const barColor = usedPct > 80 ? '#ff375f' : usedPct > 60 ? '#ff9f0a' : '#30d158';
 
@@ -98,7 +102,7 @@ export default function MyStorageNode({ user }) {
     // Validate against actual free disk space
     const selDiskInfo = disks.find(d => d.mountpoint === selectedDisk);
     if (selDiskInfo && cap > selDiskInfo.freeGB) {
-      showMsg(`Not enough free space on ${selDiskInfo.name}. Only ${selDiskInfo.freeGB.toFixed(1)} GB available.`, true);
+      showMsg(\`Not enough free space on \${selDiskInfo.name}. Only \${selDiskInfo.freeGB.toFixed(1)} GB available.\`, true);
       return;
     }
     if (selDiskInfo && cap > selDiskInfo.freeGB * 0.95) {
@@ -126,13 +130,13 @@ export default function MyStorageNode({ user }) {
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:300, flexDirection:'column', gap:16 }}>
       <RefreshCw size={28} color="rgba(255,255,255,0.2)" style={{ animation:'spin 1s linear infinite' }}/>
       <p style={{ color:'rgba(255,255,255,0.3)', fontSize:'0.88rem' }}>Loading node status...</p>
-      <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
+      <style>{\`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }\`}</style>
     </div>
   );
 
   if (!node) return (
     <motion.div variants={FV} initial="hidden" animate="show" style={{ maxWidth:700 }}>
-      <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
+      <style>{\`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }\`}</style>
       <div style={{ background:'rgba(255,159,10,0.06)', border:'1px solid rgba(255,159,10,0.2)', borderRadius:18, padding:'32px', textAlign:'center' }}>
         <AlertCircle size={48} color="#ff9f0a" style={{ marginBottom:16 }}/>
         <h2 style={{ fontSize:'1.2rem', fontWeight:800, color:'#fff', margin:'0 0 12px' }}>No Provider Node Found</h2>
@@ -149,7 +153,7 @@ export default function MyStorageNode({ user }) {
 
   return (
     <motion.div variants={FV} initial="hidden" animate="show" style={{ maxWidth:900 }}>
-      <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
+      <style>{\`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }\`}</style>
       <Toast msg={toast} err={toastErr}/>
 
       {/* Header */}
@@ -158,7 +162,7 @@ export default function MyStorageNode({ user }) {
           <h1 style={{ fontSize:'2rem', fontWeight:900, letterSpacing:'-0.04em', color:'#fff', margin:0 }}>My Storage Node</h1>
           <p style={{ color:'rgba(255,255,255,0.35)', margin:'6px 0 0', fontSize:'0.9rem' }}>Configure your storage contribution and earn SCT rewards</p>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background: node.isActive ? 'rgba(48,209,88,0.1)' : 'rgba(255,55,95,0.1)', border:`1px solid ${node.isActive?'rgba(48,209,88,0.3)':'rgba(255,55,95,0.3)'}`, borderRadius:10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background: node.isActive ? 'rgba(48,209,88,0.1)' : 'rgba(255,55,95,0.1)', border:\`1px solid \${node.isActive?'rgba(48,209,88,0.3)':'rgba(255,55,95,0.3)'}\`, borderRadius:10 }}>
           {node.isActive ? <Wifi size={14} color="#30d158"/> : <WifiOff size={14} color="#ff375f"/>}
           <span style={{ fontSize:'0.8rem', fontWeight:700, color: node.isActive?'#30d158':'#ff375f' }}>
             {node.isActive ? 'Agent Active' : 'Agent Inactive'}
@@ -170,8 +174,8 @@ export default function MyStorageNode({ user }) {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:12, marginBottom:24 }}>
         <StatCard label="Storage Used" value={fmtGB(node.usedGB||0)} accent="#2997ff" icon={<HardDrive size={18} color="#2997ff"/>}/>
         <StatCard label="Total Capacity" value={fmtGB(node.capacityGB||0)} accent="#bf5af2" icon={<Disc size={18} color="#bf5af2"/>}/>
-        <StatCard label="Total Earnings" value={`${(node.totalEarnings||0).toFixed(2)} SCT`} accent="#ff9f0a" icon={<Coins size={18} color="#ff9f0a"/>}/>
-        <StatCard label="Uptime" value={`${node.uptimePct??0}%`} accent="#30d158" icon={<CheckCircle size={18} color="#30d158"/>}/>
+        <StatCard label="Total Earnings" value={\`\${(node.totalEarnings||0).toFixed(2)} SCT\`} accent="#ff9f0a" icon={<Coins size={18} color="#ff9f0a"/>}/>
+        <StatCard label="Uptime" value={\`\${node.uptimePct??0}%\`} accent="#30d158" icon={<CheckCircle size={18} color="#30d158"/>}/>
       </div>
 
       {/* Usage bar */}
@@ -181,7 +185,7 @@ export default function MyStorageNode({ user }) {
           <span style={{ fontSize:'0.82rem', fontWeight:700, color:barColor }}>{usedPct.toFixed(1)}%</span>
         </div>
         <div style={{ height:10, background:'rgba(255,255,255,0.06)', borderRadius:6 }}>
-          <div style={{ height:'100%', width:`${usedPct}%`, background: `linear-gradient(90deg, ${barColor}aa, ${barColor})`, borderRadius:6, transition:'width 0.6s ease' }}/>
+          <div style={{ height:'100%', width:\`\${usedPct}%\`, background: \`linear-gradient(90deg, \${barColor}aa, \${barColor})\`, borderRadius:6, transition:'width 0.6s ease' }}/>
         </div>
         <div style={{ display:'flex', justifyContent:'space-between', marginTop:8, fontSize:'0.72rem', color:'rgba(255,255,255,0.3)' }}>
           <span>{fmtGB(node.usedGB||0)} used</span>
@@ -224,11 +228,11 @@ export default function MyStorageNode({ user }) {
                 const dColor = d.freeGB < 5 ? '#ff375f' : d.freeGB < 20 ? '#ff9f0a' : '#30d158';
                 return (
                   <div key={i} onClick={() => handleDiskSelect(d)}
-                    style={{ padding:'14px', background: isSelected?'rgba(191,90,242,0.1)':'rgba(255,255,255,0.03)', border:`1px solid ${isSelected?'rgba(191,90,242,0.4)':'rgba(255,255,255,0.08)'}`, borderRadius:12, cursor:'pointer', transition:'all 0.15s' }}>
+                    style={{ padding:'14px', background: isSelected?'rgba(191,90,242,0.1)':'rgba(255,255,255,0.03)', border:\`1px solid \${isSelected?'rgba(191,90,242,0.4)':'rgba(255,255,255,0.08)'}\`, borderRadius:12, cursor:'pointer', transition:'all 0.15s' }}>
                     <div style={{ fontSize:'1.1rem', fontWeight:900, color: isSelected?'#bf5af2':'#fff', marginBottom:4 }}>{d.name}</div>
                     <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.5)', marginBottom:8 }}>{d.totalGB.toFixed(1)} GB total</div>
                     <div style={{ height:4, background:'rgba(255,255,255,0.08)', borderRadius:3, marginBottom:6 }}>
-                      <div style={{ height:'100%', width:`${Math.min(usePct,100)}%`, background:dColor, borderRadius:3 }}/>
+                      <div style={{ height:'100%', width:\`\${Math.min(usePct,100)}%\`, background:dColor, borderRadius:3 }}/>
                     </div>
                     <div style={{ fontSize:'0.72rem', fontWeight:700, color:dColor }}>{d.freeGB.toFixed(1)} GB free</div>
                   </div>
@@ -307,7 +311,7 @@ export default function MyStorageNode({ user }) {
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12 }}>
             {[
               ['OS', node.hardware.os], ['CPU', node.hardware.cpu],
-              ['Cores', node.hardware.cores], ['RAM', `${node.hardware.ramFreeGB?.toFixed(1)||'?'} / ${node.hardware.ramTotalGB?.toFixed(1)||'?'} GB`],
+              ['Cores', node.hardware.cores], ['RAM', \`\${node.hardware.ramFreeGB?.toFixed(1)||'?'} / \${node.hardware.ramTotalGB?.toFixed(1)||'?'} GB\`],
               ['Agent URL', node.agentUrl], ['Region', node.region],
             ].filter(([,v])=>v).map(([l,v],i)=>(
               <div key={i}>
@@ -321,3 +325,7 @@ export default function MyStorageNode({ user }) {
     </motion.div>
   );
 }
+`;
+
+fs.writeFileSync(path.join(__dirname, '../frontend/src/pages/app/MyStorageNode.js'), nodePageCode, 'utf8');
+console.log('✓ MyStorageNode.js written');
