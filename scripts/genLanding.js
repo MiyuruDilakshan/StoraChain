@@ -1,4 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+const fs = require('fs');
+const path = require('path');
+
+const out = path.join(__dirname, '../frontend/src/pages/Landing.js');
+
+const code = `import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { HardDrive, ChevronRight, Shield, Zap, Database, Coins, Globe, Lock, ArrowUpRight, Server, CheckCircle } from "lucide-react";
@@ -11,7 +16,7 @@ function StarCanvas() {
     const stars = Array.from({ length: 260 }, () => ({ x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight, r: Math.random()*1.3+0.2, sp: Math.random()*0.22+0.04, o: Math.random()*0.7+0.1 }));
     const resize = () => { c.width = window.innerWidth; c.height = window.innerHeight; };
     resize(); window.addEventListener("resize", resize);
-    const draw = () => { ctx.clearRect(0,0,c.width,c.height); stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fillStyle=`rgba(255,255,255,${s.o})`; ctx.fill(); s.y-=s.sp; if(s.y+s.r<0){s.y=c.height+s.r;s.x=Math.random()*c.width;} }); raf.current=requestAnimationFrame(draw); };
+    const draw = () => { ctx.clearRect(0,0,c.width,c.height); stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fillStyle=\`rgba(255,255,255,\${s.o})\`; ctx.fill(); s.y-=s.sp; if(s.y+s.r<0){s.y=c.height+s.r;s.x=Math.random()*c.width;} }); raf.current=requestAnimationFrame(draw); };
     draw();
     return () => { window.removeEventListener("resize",resize); cancelAnimationFrame(raf.current); };
   }, []);
@@ -48,7 +53,7 @@ export default function Landing() {
       <div className="global-cursor-blob" style={{ left: blobPos.x, top: blobPos.y }} />
 
       {/* NAV */}
-      <nav className={`sc-nav${scrolled?" stuck":""}`}>
+      <nav className={\`sc-nav\${scrolled?" stuck":""}\`}>
         <div className="sc-logo" onClick={()=>navigate("/")}>
           <div className="sc-logo-icon"><HardDrive size={22} color="#bf5af2"/></div>
           StoraChain
@@ -132,7 +137,7 @@ export default function Landing() {
             { step:"04", icon:<Zap     size={22} color="#ff9f0a"/>, color:"#ff9f0a", title:"Instant Retrieval", desc:"Download triggers a 4-tier cascade: Provider Nodes → Replicas → IPFS → AWS S3. Always available." },
           ].map((c,i)=>(
             <motion.div key={i} variants={FV} initial="hidden" whileInView="show" viewport={{once:true,margin:"-60px"}} transition={{delay:i*0.1}}
-              style={{ background:"rgba(255,255,255,0.03)", border:`1px solid ${c.color}22`, borderRadius:18, padding:"28px 26px" }}>
+              style={{ background:"rgba(255,255,255,0.03)", border:\`1px solid \${c.color}22\`, borderRadius:18, padding:"28px 26px" }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
                 <div style={{ width:44,height:44, borderRadius:12, background:c.color+"18", display:"flex", alignItems:"center", justifyContent:"center" }}>{c.icon}</div>
                 <div style={{ fontSize:"2rem", fontWeight:900, color:c.color+"22", letterSpacing:"-0.05em" }}>{c.step}</div>
@@ -192,7 +197,7 @@ export default function Landing() {
             { icon:<Shield size={20} color="#30d158"/>, color:"#30d158",  title:"Verified Downloads", desc:"Every download is cryptographically verified. No tampering." },
           ].map((c,i)=>(
             <motion.div key={i} variants={FV} initial="hidden" whileInView="show" viewport={{once:true}} transition={{delay:i*0.08}}
-              style={{ background:"rgba(255,255,255,0.03)", border:`1px solid ${c.color}22`, borderRadius:16, padding:"24px 22px" }}>
+              style={{ background:"rgba(255,255,255,0.03)", border:\`1px solid \${c.color}22\`, borderRadius:16, padding:"24px 22px" }}>
               <div style={{ width:40,height:40, borderRadius:10, background:c.color+"15", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:16 }}>{c.icon}</div>
               <h3 style={{ fontSize:"0.95rem", fontWeight:800, color:"#fff", margin:"0 0 8px" }}>{c.title}</h3>
               <p style={{ fontSize:"0.8rem", color:"rgba(255,255,255,0.4)", lineHeight:1.6, margin:0 }}>{c.desc}</p>
@@ -273,3 +278,7 @@ export default function Landing() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync(out, code, 'utf8');
+console.log('Landing.js written:', out);

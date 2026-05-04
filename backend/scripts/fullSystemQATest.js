@@ -188,8 +188,37 @@ async function main() {
     // 4c. PDF File (Tests PDF previews)
     const pdfPath = path.resolve(tmpDir, `qa-doc.pdf`);
     // Create a valid dummy PDF
-    const pdfStr = '%PDF-1.4\\n1 0 obj\\n<< /Type /Catalog /Pages 2 0 R >>\\nendobj\\n2 0 obj\\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\\nendobj\\n3 0 obj\\n<< /Type /Page /Parent 2 0 R /Resources <<>> /MediaBox [0 0 612 792] /Contents 4 0 R >>\\nendobj\\n4 0 obj\\n<< /Length 21 >>\\nstream\\nBT /F1 12 Tf 0 0 Td (QA) Tj ET\\nendstream\\nendobj\\nxref\\n0 5\\n0000000000 65535 f \\n0000000009 00000 n \\n0000000056 00000 n \\n0000000111 00000 n \\n0000000212 00000 n \\ntrailer\\n<< /Size 5 /Root 1 0 R >>\\nstartxref\\n282\\n%%EOF';
-    fs.writeFileSync(pdfPath, pdfStr);
+    const pdfLines = [
+      '%PDF-1.4',
+      '1 0 obj',
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      'endobj',
+      '2 0 obj',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      'endobj',
+      '3 0 obj',
+      '<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /MediaBox [0 0 612 792] /Contents 4 0 R >>',
+      'endobj',
+      '4 0 obj',
+      '<< /Length 44 >>',
+      'stream',
+      'BT /F1 12 Tf 72 720 Td (StoraChain QA Test PDF) Tj ET',
+      'endstream',
+      'endobj',
+      'xref',
+      '0 5',
+      '0000000000 65535 f ',
+      '0000000009 00000 n ',
+      '0000000058 00000 n ',
+      '0000000115 00000 n ',
+      '0000000266 00000 n ',
+      'trailer',
+      '<< /Size 5 /Root 1 0 R >>',
+      'startxref',
+      '360',
+      '%%EOF',
+    ];
+    fs.writeFileSync(pdfPath, pdfLines.join('\n'));
     const pdfUpload = await uploadFile(seekerToken, pdfPath);
     const pdfRecord = await waitForProcessing(seekerToken, pdfUpload.fileId);
     if (pdfRecord.previewType && pdfRecord.previewType.includes('pdf')) {
@@ -233,9 +262,11 @@ async function main() {
 
     // 6c. Verify Marketplace listing
     const marketRes = await axios.get(`${API}/marketplace`, { headers: { Authorization: `Bearer ${seekerToken}` } });
-    const listings = marketRes.data.files || [];
-    if (listings.find(f => f._id === provUpload.fileId)) {
+    const listings = marketRes.data.listings || [];
+    if (listings.find((listing) => String(listing.fileRecordId?._id || listing.fileRecordId) === String(provUpload.fileId))) {
       logStep('Provider file appears correctly in public marketplace list');
+    } else {
+      logErr('Provider file missing from public marketplace list');
     }
 
     // 6d. Test Share Link page metadata (Public access)
@@ -277,14 +308,17 @@ async function main() {
     }
 
     // 7) Admin Dashboard Tests
-    const adminOverview = await axios.get(`${API}/admin/overview`, { headers: { Authorization: `Bearer ${adminToken}` }});
-    if (adminOverview.data.stats) logStep('Admin overview endpoint accessible and returns stats');
+    const adminStats = await axios.get(`${API}/admin/stats`, { headers: { Authorization: `Bearer ${adminToken}` }});
+    if (typeof adminStats.data.totalUsers === 'number') logStep('Admin stats endpoint accessible and returns stats');
 
     const adminUsers = await axios.get(`${API}/admin/users`, { headers: { Authorization: `Bearer ${adminToken}` }});
     if (adminUsers.data.length > 0) logStep('Admin users endpoint accessible');
 
     const adminReports = await axios.get(`${API}/admin/abuse-reports`, { headers: { Authorization: `Bearer ${adminToken}` }});
     if (Array.isArray(adminReports.data)) logStep('Admin abuse-reports endpoint accessible');
+
+    const adminTransactions = await axios.get(`${API}/admin/transactions`, { headers: { Authorization: `Bearer ${adminToken}` }});
+    if (Array.isArray(adminTransactions.data)) logStep('Admin transactions endpoint accessible');
 
     console.log('\\n=== TEST COMPLETE. SUMMARY: ===');
     summary.steps.forEach(s => console.log(`[PASS] ${s}`));

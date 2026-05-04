@@ -31,7 +31,11 @@ router.get('/', authMiddleware, async (req, res) => {
     if (category) filter.category = category;
     if (minPrice) filter.priceSCT = { $gte: Number(minPrice) };
     if (maxPrice) filter.priceSCT = { ...filter.priceSCT, $lte: Number(maxPrice) };
-    if (search)   filter.$text = { $search: search };
+    if (search)   filter.$or = [
+      { title:       { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { fileName:    { $regex: search, $options: 'i' } },
+    ];
 
     const sortMap = {
       newest:    { createdAt: -1 },

@@ -551,4 +551,53 @@ router.post('/replication-monitor/run', async (req, res) => {
   }
 });
 
+// ─── GET /api/admin/providers/online ──────────────────────────────────────
+// Pings each provider agent URL to determine real-time online/offline status.
+router.get('/providers/online', async (req, res) => {
+  try {
+    const providers = await StorageListing.find()
+      .populate('providerId', 'name email')
+      .sort({ createdAt: -1 });
+
+    const results = await Promise.all(
+      providers.map(async (p) => {
+        let isOnline = false;
+        let latencyMs = null;
+        const start = Date.now();
+        try {
+          await axios.get(`${p.agentUrl}/health`, { timeout: 4000 });
+          isOnline = true;
+          latencyMs = Date.now() - start;
+        } catch {
+          isOnline = false;
+        }
+        return {
+          _id:         p._id,
+          providerId:  p.providerId,
+          agentUrl:    p.agentUrl,
+          region:      p.region,
+          capacityGB:  p.capacityGB,
+          usedGB:      p.usedGB,
+          uptimePct:   p.uptimePct,
+          isActive:    p.isActive,
+          totalEarnings: p.totalEarnings,
+          walletAddress: p.walletAddress,
+          hardware:    p.hardware,
+          createdAt:   p.createdAt,
+          isOnline,
+          latencyMs,
+        };
+      })
+    );
+
+    const onlineCount  = results.filter(p => p.isOnline).length;
+    const offlineCount = results.filter(p => !p.isOnline).length;
+
+    res.json({ providers: results, onlineCount, offlineCount, total: results.length });
+  } catch (err) {
+    console.error('[Admin] Online providers error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

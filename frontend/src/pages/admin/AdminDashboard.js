@@ -5,7 +5,7 @@ import {
   RefreshCw, ChevronDown, ChevronUp, ExternalLink,
   CheckCircle, XCircle, AlertCircle, Shield,
   FileText, ShoppingBag, Settings, Trash2, Edit3,
-  Search, Filter, Eye, BarChart2,
+  Search, Filter, Eye, BarChart2, Wifi, WifiOff, Zap,
 } from 'lucide-react';
 import api from '../../api/client';
 
@@ -16,7 +16,7 @@ const short = (h, n = 8) => h ? `${h.slice(0, n)}…${h.slice(-6)}` : '—';
 const fmtGB = v => v >= 1 ? `${Number(v).toFixed(2)} GB` : `${(v * 1024).toFixed(0)} MB`;
 const fmtBytes = b => { if (!b) return '—'; if (b < 1048576) return `${(b/1024).toFixed(1)} KB`; if (b < 1073741824) return `${(b/1048576).toFixed(1)} MB`; return `${(b/1073741824).toFixed(2)} GB`; };
 
-const TABS = ['Overview', 'Users', 'Providers', 'Files', 'Marketplace', 'Transactions', 'Reward Cycles', 'Risk Posture', 'Abuse Reports', 'Settings'];
+const TABS = ['Overview', 'Users', 'Providers', 'Provider Monitor', 'Files', 'Marketplace', 'Transactions', 'Reward Cycles', 'Risk Posture', 'Abuse Reports', 'Settings'];
 
 /* ── shared Badge component ──────────────────────────────────────────────── */
 function Badge({ v, map }) {
@@ -454,6 +454,120 @@ function ProvidersTab({ providers, onStatusChange }) {
   );
 }
 
+/* ── ProviderMonitorTab ─────────────────────────────────────────────────── */
+function ProviderMonitorTab() {
+  const [data,    setData]    = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState('');
+
+  const fetchOnline = async () => {
+    setLoading(true); setError('');
+    try {
+      const { data: d } = await api.get('/admin/providers/online');
+      setData(d);
+    } catch (e) { setError(e.response?.data?.message || 'Failed to fetch provider status'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchOnline(); }, []);
+
+  const onlineColor  = '#30d158';
+  const offlineColor = '#ff375f';
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      {/* Summary bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+        {[
+          { label: 'Online Now',   value: data?.onlineCount  ?? '—', color: onlineColor,  icon: <Wifi    size={16} color={onlineColor}/>  },
+          { label: 'Offline',      value: data?.offlineCount ?? '—', color: offlineColor, icon: <WifiOff size={16} color={offlineColor}/> },
+          { label: 'Total Nodes',  value: data?.total        ?? '—', color: '#2997ff',    icon: <Server  size={16} color="#2997ff"/>      },
+        ].map((s,i) => (
+          <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${s.color}22`, borderRadius: 14, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: s.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.icon}</div>
+            <div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{s.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+          onClick={fetchOnline} disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600 }}>
+          <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> Refresh
+        </motion.button>
+      </div>
+
+      {error && <div style={{ padding: '12px 16px', background: 'rgba(255,55,95,0.07)', border: '1px solid rgba(255,55,95,0.25)', borderRadius: 10, color: '#ff375f', fontSize: '0.84rem', marginBottom: 12 }}>{error}</div>}
+
+      <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, overflow: 'hidden' }}>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 1.4fr 1fr 1fr 1fr', gap: 8, alignItems: 'center' }}>
+          {['', 'Provider', 'Region', 'Storage', 'Latency', 'Uptime', 'Status'].map((h,i) => (
+            <div key={i} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)' }}>{h}</div>
+          ))}
+        </div>
+
+        {loading && !data && (
+          <div style={{ padding: '50px 20px', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>
+            <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite', marginBottom: 8, display: 'block', margin: '0 auto 8px' }}/>
+            Pinging provider agents…
+          </div>
+        )}
+
+        {(data?.providers || []).map((p, i) => {
+          const usedPct = p.capacityGB > 0 ? Math.min((p.usedGB / p.capacityGB) * 100, 100) : 0;
+          const barC = usedPct > 80 ? '#ff375f' : usedPct > 60 ? '#ff9f0a' : '#30d158';
+          return (
+            <div key={p._id || i}
+              style={{ display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 1.4fr 1fr 1fr 1fr', gap: 8, padding: '13px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.014)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              {/* Online dot */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 9, height: 9, borderRadius: '50%', background: p.isOnline ? onlineColor : offlineColor, boxShadow: p.isOnline ? `0 0 6px ${onlineColor}` : 'none' }}/>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#fff' }}>{p.providerId?.name || 'Unknown'}</div>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{p.agentUrl}</div>
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>{p.region || 'local'}</div>
+              <div>
+                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>{fmtGB(p.usedGB||0)} / {fmtGB(p.capacityGB||0)}</div>
+                <div style={{ height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 3 }}>
+                  <div style={{ height: '100%', width: `${usedPct}%`, background: barC, borderRadius: 3 }}/>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: p.latencyMs ? (p.latencyMs < 200 ? '#30d158' : p.latencyMs < 500 ? '#ff9f0a' : '#ff375f') : 'rgba(255,255,255,0.25)' }}>
+                {p.latencyMs ? `${p.latencyMs}ms` : '—'}
+              </div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#2997ff' }}>{p.uptimePct ?? 0}%</div>
+              <div>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '3px 10px', borderRadius: 20, fontSize: '0.64rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  background: p.isOnline ? 'rgba(48,209,88,0.12)' : 'rgba(255,55,95,0.1)',
+                  border: `1px solid ${p.isOnline ? 'rgba(48,209,88,0.3)' : 'rgba(255,55,95,0.3)'}`,
+                  color: p.isOnline ? '#30d158' : '#ff375f',
+                }}>
+                  {p.isOnline ? <Wifi size={9}/> : <WifiOff size={9}/>}
+                  {p.isOnline ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+
+        {data?.providers?.length === 0 && !loading && (
+          <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: '0.85rem' }}>No providers registered</div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 /* ── FilesTab ─────────────────────────────────────────────────────────────── */
 function FilesTab({ files }) {
   const [page, setPage] = useState(0);
@@ -487,10 +601,9 @@ function FilesTab({ files }) {
           <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)' }}>{f.userId?.name || '—'}</div>
           <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.55)' }}>{fmtBytes(f.fileSize)}</div>
           <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>{f.createdAt ? fmtDate(f.createdAt) : '—'}</div>
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-            {f.ipfsCid && <a href={`https://gateway.pinata.cloud/ipfs/${f.ipfsCid}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.64rem', padding: '2px 7px', background: 'rgba(41,151,255,0.1)', border: '1px solid rgba(41,151,255,0.25)', borderRadius: 6, color: '#2997ff', textDecoration: 'none', fontWeight: 700 }}>IPFS</a>}
-            {(f.onChainTxHash || f.txHash) && <a href={`https://sepolia.etherscan.io/tx/${f.onChainTxHash || f.txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.64rem', padding: '2px 7px', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.25)', borderRadius: 6, color: '#bf5af2', textDecoration: 'none', fontWeight: 700 }}>ETH</a>}
-            {!f.ipfsCid && !(f.onChainTxHash || f.txHash) && <span style={{ fontSize: '0.64rem', color: 'rgba(255,255,255,0.2)' }}>local</span>}
+          <div style={{ display: 'flex', gap: 5 }}>
+            {f.cid && <a href={`https://gateway.pinata.cloud/ipfs/${f.cid}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.64rem', padding: '2px 7px', background: 'rgba(41,151,255,0.1)', border: '1px solid rgba(41,151,255,0.25)', borderRadius: 6, color: '#2997ff', textDecoration: 'none', fontWeight: 700 }}>IPFS</a>}
+            {f.txHash && <a href={`https://sepolia.etherscan.io/tx/${f.txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.64rem', padding: '2px 7px', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.25)', borderRadius: 6, color: '#bf5af2', textDecoration: 'none', fontWeight: 700 }}>ETH</a>}
           </div>
           <Badge v={f.chunkHealth || 'healthy'} map={HEALTH_MAP} />
         </div>
@@ -806,9 +919,9 @@ function SettingsTab({ onToast }) {
         </div>
         {[
           { label: 'Admin Secret Key', value: 'StoraChain-Admin-2024', note: 'Set in backend .env as ADMIN_SECRET' },
-          { label: 'Network', value: 'StoraChain Network', note: 'Smart contract & token minting chain' },
+          { label: 'Network', value: 'Ethereum Sepolia (Testnet)', note: 'Smart contract & token minting chain' },
           { label: 'IPFS Gateway', value: 'Pinata Cloud', note: 'Primary decentralized storage layer' },
-          { label: 'Token Standard', value: 'ERC-20 — StoraChain Token (SCT)', note: 'Platform utility token' },
+          { label: 'Token Standard', value: 'ERC-20 — StoraChain Token (SCT)', note: 'ERC-20 on Sepolia' },
           { label: 'Stripe Mode', value: 'Test Mode (pk_test_51TRHz…)', note: 'Switch to live mode for production' },
           { label: 'Replication Factor', value: '3× chunks across providers', note: 'Configurable in replicationMonitor.js' },
           { label: 'Reward Schedule', value: 'Daily at midnight UTC', note: 'Cron job via node-cron' },
@@ -957,13 +1070,14 @@ export default function AdminDashboard() {
       case 0: return <OverviewTab onRunCycle={handleRunCycle} cycleRunning={cycleRunning} cycleDone={cycleDone} onRunReplication={handleRunReplication} replicationRunning={replicationRunning} files={files} stats={stats} />;
       case 1: return <UsersTab users={users} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />;
       case 2: return <ProvidersTab providers={providers} onStatusChange={handleStatusChange} />;
-      case 3: return <FilesTab files={files} />;
-      case 4: return <MarketplaceTab listings={marketplaceListings} onRemove={handleRemoveListing} />;
-      case 5: return <TransactionsTab transactions={txns} />;
-      case 6: return <RewardCyclesTab cycles={cycles} />;
-      case 7: return <RiskPostureTab risk={risk} />;
-      case 8: return <AbuseReportsTab reports={abuseReports} onUpdate={handleAbuseUpdate} />;
-      case 9: return <SettingsTab onToast={showToast} />;
+      case 3: return <ProviderMonitorTab />;
+      case 4: return <FilesTab files={files} />;
+      case 5: return <MarketplaceTab listings={marketplaceListings} onRemove={handleRemoveListing} />;
+      case 6: return <TransactionsTab transactions={txns} />;
+      case 7: return <RewardCyclesTab cycles={cycles} />;
+      case 8: return <RiskPostureTab risk={risk} />;
+      case 9: return <AbuseReportsTab reports={abuseReports} onUpdate={handleAbuseUpdate} />;
+      case 10: return <SettingsTab onToast={showToast} />;
       default: return null;
     }
   };
@@ -1021,7 +1135,7 @@ export default function AdminDashboard() {
             style={{ padding: '8px 14px', background: tab === i ? 'rgba(255,255,255,0.08)' : 'transparent', border: tab === i ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent', borderRadius: 9, color: tab === i ? '#fff' : 'rgba(255,255,255,0.4)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: tab === i ? 700 : 500, transition: 'all 0.15s' }}>
             {t}
             {i === 1 && users.length > 0 && <span style={{ marginLeft: 5, background: 'rgba(41,151,255,0.2)', color: '#2997ff', fontSize: '0.65rem', borderRadius: 10, padding: '1px 6px' }}>{users.length}</span>}
-            {i === 8 && abuseReports.filter(r => r.status === 'open').length > 0 && <span style={{ marginLeft: 5, background: 'rgba(255,55,95,0.2)', color: '#ff375f', fontSize: '0.65rem', borderRadius: 10, padding: '1px 6px' }}>{abuseReports.filter(r => r.status === 'open').length}</span>}
+            {i === 9 && abuseReports.filter(r => r.status === 'open').length > 0 && <span style={{ marginLeft: 5, background: 'rgba(255,55,95,0.2)', color: '#ff375f', fontSize: '0.65rem', borderRadius: 10, padding: '1px 6px' }}>{abuseReports.filter(r => r.status === 'open').length}</span>}
           </button>
         ))}
       </div>

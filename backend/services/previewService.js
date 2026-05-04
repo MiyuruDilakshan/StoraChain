@@ -16,9 +16,9 @@
 
 const sharp = require('sharp');
 
-let pdfParse = null;
+let PDFParse = null;
 try {
-  pdfParse = require('pdf-parse');
+  ({ PDFParse } = require('pdf-parse'));
 } catch (e) {
   console.warn('[preview] pdf-parse not available — PDF text previews disabled');
 }
@@ -57,10 +57,11 @@ async function generatePreview(buffer, mimeType) {
   }
 
   // ── PDF ────────────────────────────────────────────────────────────────────
-  if (mimeType === 'application/pdf' && pdfParse) {
+  if (mimeType === 'application/pdf' && PDFParse) {
     try {
-      // max:1 limits parsing to the first page for speed
-      const data    = await pdfParse(buffer, { max: 1 });
+      const parser = new PDFParse({ data: buffer });
+      const data = await parser.getText({ partial: [1] });
+      await parser.destroy();
       const snippet = (data.text || '')
         .replace(/\s+/g, ' ')
         .trim()

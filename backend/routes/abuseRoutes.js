@@ -39,32 +39,4 @@ router.post('/report', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/abuse/reports — admin: list all reports
-router.get('/reports', authMiddleware, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admins only' });
-    const reports = await AbuseReport.find()
-      .populate('reporterUserId', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(500);
-    res.json(reports);
-  } catch (err) {
-    console.error('[Abuse] list error:', err.message);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// PATCH /api/abuse/reports/:id — admin: update status
-router.patch('/reports/:id', authMiddleware, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admins only' });
-    const report = await AbuseReport.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
-    if (!report) return res.status(404).json({ message: 'Report not found' });
-    res.json({ message: 'Status updated', report });
-  } catch (err) {
-    console.error('[Abuse] update error:', err.message);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
 module.exports = router;

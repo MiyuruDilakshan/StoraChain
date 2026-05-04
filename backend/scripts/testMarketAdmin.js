@@ -51,6 +51,12 @@ async function run() {
     singleSale: false
   }, { headers: { Authorization: `Bearer ${sellerToken}` } });
 
+  await axios.patch(`${API}/storage/files/${fileId}/settings`, {
+    visibility: 'shared',
+    isLocked: true,
+    priceSCT: 5,
+  }, { headers: { Authorization: `Bearer ${sellerToken}` } });
+
   // Get shareToken
   const fileRes = await axios.get(`${API}/storage/files/${fileId}`, { headers: { Authorization: `Bearer ${sellerToken}` }});
   const shareToken = fileRes.data.shareToken;
@@ -65,8 +71,8 @@ async function run() {
   console.log('Buyer SCT:', bMe.data.sctBalance, 'Seller SCT:', sMe.data.sctBalance);
 
   // Admin routes
-  await axios.get(`${API}/admin/overview`, { headers: { Authorization: `Bearer ${adminToken}` }});
-  console.log('✓ Admin overview OK');
+  await axios.get(`${API}/admin/stats`, { headers: { Authorization: `Bearer ${adminToken}` }});
+  console.log('✓ Admin stats OK');
   await axios.get(`${API}/admin/users`, { headers: { Authorization: `Bearer ${adminToken}` }});
   console.log('✓ Admin users OK');
   await axios.get(`${API}/admin/abuse-reports`, { headers: { Authorization: `Bearer ${adminToken}` }});

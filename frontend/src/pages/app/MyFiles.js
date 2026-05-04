@@ -7,6 +7,7 @@ import {
   X, Lock, HardDrive, Shield, MoreVertical, Link2, Flag,
   Grid, List, Globe, Users, DollarSign, Coins, CheckCircle,
   ShoppingBag, Tag, ChevronDown, Copy, AlertCircle, Plus,
+  Star, Clock, ChevronRight,
 } from 'lucide-react';
 import api from '../../api/client';
 
@@ -52,13 +53,13 @@ function timeAgo(d) {
 }
 
 const VISIBILITY_CONFIG = {
-  private: { label: 'Private',       icon: <Lock size={12} />,  color: 'rgba(255,255,255,0.4)',  bg: 'rgba(255,255,255,0.06)' },
-  shared:  { label: 'Link only',     icon: <Link2 size={12} />, color: '#ff9f0a',                bg: 'rgba(255,159,10,0.1)' },
-  public:  { label: 'Public',        icon: <Globe size={12} />, color: '#30d158',                bg: 'rgba(48,209,88,0.1)' },
+  private: { label: 'Private',   icon: <Lock  size={12} />, color: 'rgba(255,255,255,0.4)', bg: 'rgba(255,255,255,0.06)' },
+  shared:  { label: 'Link only', icon: <Link2 size={12} />, color: '#ff9f0a',               bg: 'rgba(255,159,10,0.1)' },
+  public:  { label: 'Public',    icon: <Globe size={12} />, color: '#30d158',               bg: 'rgba(48,209,88,0.1)' },
 };
 
-const SORT_OPTIONS = ['Date modified', 'Name', 'Size', 'Type'];
-const FILTER_TYPES = ['All', 'Images', 'Video', 'Audio', 'Documents', 'Code', 'Archives'];
+const SORT_OPTIONS  = ['Date modified', 'Name', 'Size', 'Type'];
+const FILTER_TYPES  = ['All', 'Images', 'Video', 'Audio', 'Documents', 'Code', 'Archives'];
 
 function mimeMatchesFilter(mime = '', name = '', filter) {
   if (filter === 'All') return true;
@@ -103,10 +104,10 @@ function ShareModal({ file, onClose, onSaved, origin }) {
       setShareToken(r.data.shareToken || shareToken);
       if (listMarket && mkTitle) {
         await api.post('/marketplace/list', {
-          fileRecordId: file._id,
-          title:        mkTitle,
-          description:  mkDesc,
-          priceSCT:     Number(priceSCT) || 0,
+          fileRecordId:  file._id,
+          title:         mkTitle,
+          description:   mkDesc,
+          priceSCT:      Number(priceSCT) || 0,
           priceUSDCents: Math.round((Number(priceUSD) || 0) * 100),
           acceptsTokens: true,
           acceptsFiat:   (Number(priceUSD) || 0) > 0,
@@ -132,7 +133,6 @@ function ShareModal({ file, onClose, onSaved, origin }) {
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         style={{ background: '#0f0f0f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 22,
                  width: '100%', maxWidth: 480, overflow: 'hidden' }}>
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div>
             <div style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>Share & Monetize</div>
@@ -140,16 +140,14 @@ function ShareModal({ file, onClose, onSaved, origin }) {
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}><X size={18} /></button>
         </div>
-
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {/* Visibility */}
           <div>
             <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Who can access</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
-                { val: 'private', icon: <Lock size={14} />,  title: 'Private',       sub: 'Only you can access this file' },
+                { val: 'private', icon: <Lock  size={14} />, title: 'Private',              sub: 'Only you can access this file' },
                 { val: 'shared',  icon: <Link2 size={14} />, title: 'Anyone with the link', sub: 'Share a unique link to let others access' },
-                { val: 'public',  icon: <Globe size={14} />, title: 'Public',         sub: 'Anyone can find and access this file' },
+                { val: 'public',  icon: <Globe size={14} />, title: 'Public',               sub: 'Anyone can find and access this file' },
               ].map(opt => (
                 <div key={opt.val} onClick={() => setVisibility(opt.val)}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer',
@@ -171,8 +169,6 @@ function ShareModal({ file, onClose, onSaved, origin }) {
               ))}
             </div>
           </div>
-
-          {/* Lock & Price */}
           <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isLocked ? 14 : 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -185,8 +181,7 @@ function ShareModal({ file, onClose, onSaved, origin }) {
               <div onClick={() => setIsLocked(v => !v)}
                 style={{ width: 42, height: 24, borderRadius: 999, cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0,
                          background: isLocked ? '#ff9f0a' : 'rgba(255,255,255,0.12)', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: 3, left: isLocked ? 21 : 3, width: 18, height: 18,
-                              borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                <div style={{ position: 'absolute', top: 3, left: isLocked ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
               </div>
             </div>
             {isLocked && (
@@ -210,8 +205,6 @@ function ShareModal({ file, onClose, onSaved, origin }) {
               </div>
             )}
           </div>
-
-          {/* Marketplace listing */}
           {(visibility === 'public' || listMarket) && (
             <div style={{ padding: '14px', background: 'rgba(191,90,242,0.05)', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -246,8 +239,6 @@ function ShareModal({ file, onClose, onSaved, origin }) {
               <Plus size={13} /> Add to Marketplace
             </button>
           )}
-
-          {/* Share link */}
           {visibility !== 'private' && shareToken && (
             <div>
               <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Shareable Link</div>
@@ -262,9 +253,7 @@ function ShareModal({ file, onClose, onSaved, origin }) {
               </div>
             </div>
           )}
-
           {error && <div style={{ padding: '10px 14px', background: 'rgba(255,55,95,0.08)', border: '1px solid rgba(255,55,95,0.25)', borderRadius: 9, color: '#ff375f', fontSize: '0.83rem', display: 'flex', alignItems: 'center', gap: 7 }}><AlertCircle size={13} />{error}</div>}
-
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Cancel</button>
             <button onClick={save} disabled={saving}
@@ -362,12 +351,13 @@ function PreviewModal({ file, onClose, onDownload, dlLoading }) {
 }
 
 /* ── Grid File Card ──────────────────────────────────────────────────── */
-function FileCard({ file, onPreview, onDownload, onShare, onDelete, onReport, onDrive, dlLoading }) {
+function FileCard({ file, onPreview, onDownload, onShare, onDelete, onReport, onDrive, dlLoading, starred, onToggleStar }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-  const cid     = file.ipfsCid || file.cid;
-  const vis     = VISIBILITY_CONFIG[file.visibility] || VISIBILITY_CONFIG.private;
-  const col     = fileColor(file.fileName, file.mimeType);
+  const menuRef   = useRef(null);
+  const cid       = file.ipfsCid || file.cid;
+  const vis       = VISIBILITY_CONFIG[file.visibility] || VISIBILITY_CONFIG.private;
+  const col       = fileColor(file.fileName, file.mimeType);
+  const isStarred = starred?.has(file._id);
 
   useEffect(() => {
     const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
@@ -376,55 +366,48 @@ function FileCard({ file, onPreview, onDownload, onShare, onDelete, onReport, on
   }, [menuOpen]);
 
   return (
-    <motion.div whileHover={{ y: -2, boxShadow: `0 8px 32px rgba(0,0,0,0.4)` }} transition={{ duration: 0.18 }}
+    <motion.div whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }} transition={{ duration: 0.18 }}
       style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18,
                overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'default' }}>
       {/* Thumbnail */}
       <div onClick={() => onPreview(file)}
         style={{ height: 140, background: `${col}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        {file.previewType === 'image-thumb' && file.previewCid ? (
-          <img src={`https://gateway.pinata.cloud/ipfs/${file.previewCid}`} alt={file.fileName}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <div style={{ opacity: 0.6 }}>{fileIcon(file.fileName, file.mimeType, 44)}</div>
-        )}
-        {/* Lock badge */}
+        {file.previewType === 'image-thumb' && file.previewCid
+          ? <img src={`https://gateway.pinata.cloud/ipfs/${file.previewCid}`} alt={file.fileName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <div style={{ opacity: 0.6 }}>{fileIcon(file.fileName, file.mimeType, 44)}</div>
+        }
         {file.isLocked && (
           <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', background: 'rgba(255,159,10,0.9)', borderRadius: 20, fontSize: '0.65rem', fontWeight: 700, color: '#000' }}>
             <Lock size={9} /> {file.priceUSD ? `$${file.priceUSD}` : `${file.priceSCT} SCT`}
           </div>
         )}
-        {/* Visibility badge */}
         <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', borderRadius: 20, fontSize: '0.65rem', fontWeight: 700, color: vis.color }}>
           {vis.icon} {vis.label}
         </div>
       </div>
-
       {/* Info */}
       <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.fileName}>
-          {file.fileName}
-        </div>
-        <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>
-          {fmt(file.fileSize)} · {timeAgo(file.createdAt)}
-        </div>
+        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.fileName}>{file.fileName}</div>
+        <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>{fmt(file.fileSize)} · {timeAgo(file.createdAt)}</div>
         {file.onChainTxHash && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.65rem', color: '#30d158' }}>
             <CheckCircle size={9} /> On Chain
           </div>
         )}
       </div>
-
       {/* Actions row */}
       <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <button onClick={() => onDownload(file._id, file.fileName)} disabled={dlLoading[file._id]}
-          title="Download"
+        <button onClick={() => onDownload(file._id, file.fileName)} disabled={dlLoading[file._id]} title="Download"
           style={{ flex: 1, padding: '9px', background: 'none', border: 'none', borderRight: '1px solid rgba(255,255,255,0.06)', color: '#2997ff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {dlLoading[file._id] ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={13} />}
         </button>
         <button onClick={() => onShare(file)} title="Share & Monetize"
           style={{ flex: 1, padding: '9px', background: 'none', border: 'none', borderRight: '1px solid rgba(255,255,255,0.06)', color: '#bf5af2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Share2 size={13} />
+        </button>
+        <button onClick={() => onToggleStar?.(file._id)} title={isStarred ? 'Unstar' : 'Star'}
+          style={{ flex: 1, padding: '9px', background: 'none', border: 'none', borderRight: '1px solid rgba(255,255,255,0.06)', color: isStarred ? '#ff9f0a' : 'rgba(255,255,255,0.22)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.15s' }}>
+          <Star size={13} fill={isStarred ? '#ff9f0a' : 'none'} />
         </button>
         <div ref={menuRef} style={{ position: 'relative', flex: 1 }}>
           <button onClick={() => setMenuOpen(v => !v)}
@@ -451,11 +434,12 @@ function FileCard({ file, onPreview, onDownload, onShare, onDelete, onReport, on
 }
 
 /* ── List Row ─────────────────────────────────────────────────────────── */
-function FileRow({ file, onPreview, onDownload, onShare, onDelete, onReport, onDrive, dlLoading }) {
+function FileRow({ file, onPreview, onDownload, onShare, onDelete, onReport, onDrive, dlLoading, starred, onToggleStar }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-  const cid = file.ipfsCid || file.cid;
-  const vis = VISIBILITY_CONFIG[file.visibility] || VISIBILITY_CONFIG.private;
+  const menuRef   = useRef(null);
+  const cid       = file.ipfsCid || file.cid;
+  const vis       = VISIBILITY_CONFIG[file.visibility] || VISIBILITY_CONFIG.private;
+  const isStarred = starred?.has(file._id);
 
   useEffect(() => {
     const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
@@ -465,19 +449,16 @@ function FileRow({ file, onPreview, onDownload, onShare, onDelete, onReport, onD
 
   return (
     <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-      style={{ display: 'grid', gridTemplateColumns: '3fr 80px 90px 110px 140px', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', transition: 'background 0.15s' }}
+      style={{ display: 'grid', gridTemplateColumns: '3fr 80px 90px 110px 160px', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', transition: 'background 0.15s' }}
       onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
       {/* Name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-        {file.previewType === 'image-thumb' && file.previewCid ? (
-          <img src={`https://gateway.pinata.cloud/ipfs/${file.previewCid}`} alt="" onClick={() => onPreview(file)}
-            style={{ width: 34, height: 34, borderRadius: 7, objectFit: 'cover', flexShrink: 0, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.08)' }} />
-        ) : (
-          <div style={{ width: 34, height: 34, borderRadius: 7, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {fileIcon(file.fileName, file.mimeType, 16)}
-          </div>
-        )}
+        {file.previewType === 'image-thumb' && file.previewCid
+          ? <img src={`https://gateway.pinata.cloud/ipfs/${file.previewCid}`} alt="" onClick={() => onPreview(file)}
+              style={{ width: 34, height: 34, borderRadius: 7, objectFit: 'cover', flexShrink: 0, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.08)' }} />
+          : <div style={{ width: 34, height: 34, borderRadius: 7, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{fileIcon(file.fileName, file.mimeType, 16)}</div>
+        }
         <div style={{ overflow: 'hidden' }}>
           <div style={{ fontSize: '0.87rem', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.fileName}</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
@@ -488,11 +469,8 @@ function FileRow({ file, onPreview, onDownload, onShare, onDelete, onReport, onD
           </div>
         </div>
       </div>
-      {/* Size */}
       <div style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.5)' }}>{fmt(file.fileSize)}</div>
-      {/* Shards */}
       <div style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.4)' }}>{file.chunks?.length || 1} shards</div>
-      {/* Date */}
       <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>{timeAgo(file.createdAt)}</div>
       {/* Actions */}
       <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
@@ -506,6 +484,10 @@ function FileRow({ file, onPreview, onDownload, onShare, onDelete, onReport, onD
         </button>
         <button onClick={() => onShare(file)} title="Share"
           style={{ padding: '6px 8px', background: 'rgba(191,90,242,0.08)', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 7, color: '#bf5af2', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Share2 size={12} /></button>
+        <button onClick={() => onToggleStar?.(file._id)} title={isStarred ? 'Unstar' : 'Star'}
+          style={{ padding: '6px 8px', background: isStarred ? 'rgba(255,159,10,0.08)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isStarred ? 'rgba(255,159,10,0.25)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 7, color: isStarred ? '#ff9f0a' : 'rgba(255,255,255,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}>
+          <Star size={12} fill={isStarred ? '#ff9f0a' : 'none'} />
+        </button>
         <div ref={menuRef} style={{ position: 'relative' }}>
           <button onClick={() => setMenuOpen(v => !v)}
             style={{ padding: '6px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><MoreVertical size={12} /></button>
@@ -525,42 +507,69 @@ function FileRow({ file, onPreview, onDownload, onShare, onDelete, onReport, onD
   );
 }
 
+/* ── Folder category definitions ─────────────────────────────────────── */
+const FOLDER_DEFS = [
+  { type: 'Images',    color: '#bf5af2', icon: (s) => <Image    size={s} color="#bf5af2" /> },
+  { type: 'Documents', color: '#2997ff', icon: (s) => <FileText size={s} color="#2997ff" /> },
+  { type: 'Video',     color: '#ff375f', icon: (s) => <Video    size={s} color="#ff375f" /> },
+  { type: 'Audio',     color: '#30d158', icon: (s) => <Music    size={s} color="#30d158" /> },
+  { type: 'Code',      color: '#ff9f0a', icon: (s) => <Code     size={s} color="#ff9f0a" /> },
+  { type: 'Archives',  color: '#a0a0a0', icon: (s) => <Archive  size={s} color="#a0a0a0" /> },
+];
+
 /* ── Main Component ───────────────────────────────────────────────────── */
 export default function MyFiles({ user }) {
   const navigate = useNavigate();
-  const [tab,         setTab]         = useState('uploads');
-  const [viewMode,    setViewMode]    = useState('grid');
-  const [files,       setFiles]       = useState([]);
-  const [shared,      setShared]      = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [sharedLoading, setSharedLoading] = useState(false);
-  const [search,      setSearch]      = useState('');
-  const [sortBy,      setSortBy]      = useState('Date modified');
-  const [filterType,  setFilterType]  = useState('All');
-  const [showSort,    setShowSort]    = useState(false);
-  const [showFilter,  setShowFilter]  = useState(false);
-  const [delId,       setDelId]       = useState(null);
-  const [dlLoading,   setDlLoading]   = useState({});
-  const [toast,       setToast]       = useState('');
-  const [toastErr,    setToastErr]    = useState(false);
-  const [previewFile, setPreviewFile] = useState(null);
-  const [shareFile,   setShareFile]   = useState(null);
-  const origin = window.location.origin;
 
+  // Google Drive-style section navigation
+  const [activeSection, setActiveSection] = useState('myfiles'); // myfiles | recent | starred | shared
+  const [currentFolder,  setCurrentFolder]  = useState(null);    // null = all, or type label 'Images' etc.
+
+  const [viewMode,       setViewMode]       = useState('grid');
+  const [files,          setFiles]          = useState([]);
+  const [shared,         setShared]         = useState([]);
+  const [loading,        setLoading]        = useState(true);
+  const [sharedLoading,  setSharedLoading]  = useState(false);
+  const [search,         setSearch]         = useState('');
+  const [sortBy,         setSortBy]         = useState('Date modified');
+  const [filterType,     setFilterType]     = useState('All');
+  const [showSort,       setShowSort]       = useState(false);
+  const [showFilter,     setShowFilter]     = useState(false);
+  const [delId,          setDelId]          = useState(null);
+  const [dlLoading,      setDlLoading]      = useState({});
+  const [toast,          setToast]          = useState('');
+  const [toastErr,       setToastErr]       = useState(false);
+  const [previewFile,    setPreviewFile]    = useState(null);
+  const [shareFile,      setShareFile]      = useState(null);
+
+  // Starred files – localStorage persisted
+  const [starred, setStarred] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('sc_starred') || '[]')); }
+    catch { return new Set(); }
+  });
+  const toggleStar = useCallback((fileId) => {
+    setStarred(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId); else next.add(fileId);
+      try { localStorage.setItem('sc_starred', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
+
+  const origin   = window.location.origin;
   const showToast = (msg, err = false) => { setToast(msg); setToastErr(err); setTimeout(() => setToast(''), 3500); };
 
   const fetchFiles = useCallback(() => {
     setLoading(true);
     api.get('/storage/files').then(r => setFiles(r.data)).catch(() => setFiles([])).finally(() => setLoading(false));
   }, []);
-
   const fetchShared = useCallback(() => {
     setSharedLoading(true);
     api.get('/marketplace/shared-with-me').then(r => setShared(r.data)).catch(() => setShared([])).finally(() => setSharedLoading(false));
   }, []);
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
-  useEffect(() => { if (tab === 'shared' && shared.length === 0) fetchShared(); }, [tab]); // eslint-disable-line
+  useEffect(() => { if (activeSection === 'shared' && shared.length === 0) fetchShared(); }, [activeSection]); // eslint-disable-line
 
   const handleDownload = async (fileId, fileName) => {
     setDlLoading(p => ({ ...p, [fileId]: true }));
@@ -590,11 +599,8 @@ export default function MyFiles({ user }) {
   };
 
   const handleOpenGoogleDrive = (file) => {
-    const fileNameQuery = encodeURIComponent(file?.fileName || '');
-    const driveUrl = fileNameQuery
-      ? `https://drive.google.com/drive/u/0/search?q=${fileNameQuery}`
-      : 'https://drive.google.com/drive/u/0/my-drive';
-    window.open(driveUrl, '_blank', 'noopener,noreferrer');
+    const q = encodeURIComponent(file?.fileName || '');
+    window.open(q ? `https://drive.google.com/drive/u/0/search?q=${q}` : 'https://drive.google.com/drive/u/0/my-drive', '_blank', 'noopener,noreferrer');
     showToast('Google Drive opened in a new tab');
   };
 
@@ -604,272 +610,390 @@ export default function MyFiles({ user }) {
     showToast('Settings saved');
   };
 
-  // Sort + filter
-  const applySort = (arr) => {
-    return [...arr].sort((a, b) => {
-      if (sortBy === 'Name') return a.fileName.localeCompare(b.fileName);
-      if (sortBy === 'Size') return b.fileSize - a.fileSize;
-      if (sortBy === 'Type') return (a.mimeType || '').localeCompare(b.mimeType || '');
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    });
-  };
+  const goSection = (section) => { setActiveSection(section); setCurrentFolder(null); setSearch(''); setFilterType('All'); };
 
-  const filtered = applySort(
-    files.filter(f =>
-      f.fileName?.toLowerCase().includes(search.toLowerCase()) &&
-      mimeMatchesFilter(f.mimeType || '', f.fileName || '', filterType)
-    )
-  );
-
-  const totalSize = files.reduce((a, f) => a + (f.fileSize || 0), 0);
-  const quotaGB = user?.storageQuotaGB || 2;
-  const usedGB  = user?.usedStorageGB  || 0;
-  const quotaPct = Math.min(100, (usedGB / quotaGB) * 100);
-  const quotaColor = quotaPct > 90 ? '#ff375f' : quotaPct > 70 ? '#ff9f0a' : '#2997ff';
-
-  const tabBtn = (active) => ({
-    padding: '7px 16px', background: active ? 'rgba(41,151,255,0.12)' : 'transparent',
-    border: `1px solid ${active ? 'rgba(41,151,255,0.35)' : 'rgba(255,255,255,0.08)'}`,
-    borderRadius: 9, color: active ? '#2997ff' : 'rgba(255,255,255,0.4)',
-    cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.83rem', fontWeight: 700,
+  const applySort = (arr) => [...arr].sort((a, b) => {
+    if (sortBy === 'Name') return a.fileName.localeCompare(b.fileName);
+    if (sortBy === 'Size') return b.fileSize - a.fileSize;
+    if (sortBy === 'Type') return (a.mimeType || '').localeCompare(b.mimeType || '');
+    return new Date(b.createdAt) - new Date(a.createdAt);
   });
 
-  return (
-    <div style={{ position: 'relative', zIndex: 1 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.04em', color: '#fff', margin: 0 }}>My Files</h1>
-          <p style={{ color: 'rgba(255,255,255,0.35)', marginTop: 5, fontSize: '0.88rem' }}>
-            {files.length} file{files.length !== 1 ? 's' : ''} · {fmt(totalSize)} stored
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Search */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9 }}>
-            <Search size={13} color="rgba(255,255,255,0.3)" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search files…"
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: '0.84rem', fontFamily: 'inherit', outline: 'none', width: 150 }} />
-          </div>
-          {/* Sort */}
-          <div style={{ position: 'relative' }}>
-            <button onClick={() => setShowSort(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: 'rgba(255,255,255,0.55)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.81rem', fontWeight: 600 }}>
-              <Tag size={12} /> {sortBy} <ChevronDown size={11} />
-            </button>
-            {showSort && (
-              <div style={{ position: 'absolute', top: 38, right: 0, background: '#111', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: 6, zIndex: 50, minWidth: 150 }}>
-                {SORT_OPTIONS.map(o => (
-                  <button key={o} onClick={() => { setSortBy(o); setShowSort(false); }}
-                    style={{ display: 'block', width: '100%', padding: '7px 11px', background: sortBy === o ? 'rgba(41,151,255,0.1)' : 'transparent', border: 'none', borderRadius: 8, color: sortBy === o ? '#2997ff' : 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', textAlign: 'left', fontWeight: sortBy === o ? 700 : 400 }}>{o}</button>
-                ))}
-              </div>
-            )}
-          </div>
-          {/* Filter */}
-          <div style={{ position: 'relative' }}>
-            <button onClick={() => setShowFilter(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: 'rgba(255,255,255,0.55)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.81rem', fontWeight: 600 }}>
-              {filterType} <ChevronDown size={11} />
-            </button>
-            {showFilter && (
-              <div style={{ position: 'absolute', top: 38, right: 0, background: '#111', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: 6, zIndex: 50, minWidth: 120 }}>
-                {FILTER_TYPES.map(t => (
-                  <button key={t} onClick={() => { setFilterType(t); setShowFilter(false); }}
-                    style={{ display: 'block', width: '100%', padding: '7px 11px', background: filterType === t ? 'rgba(41,151,255,0.1)' : 'transparent', border: 'none', borderRadius: 8, color: filterType === t ? '#2997ff' : 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', textAlign: 'left', fontWeight: filterType === t ? 700 : 400 }}>{t}</button>
-                ))}
-              </div>
-            )}
-          </div>
-          {/* View toggle */}
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, overflow: 'hidden' }}>
-            {[{ mode: 'grid', icon: <Grid size={13} /> }, { mode: 'list', icon: <List size={13} /> }].map(({ mode, icon }) => (
-              <button key={mode} onClick={() => setViewMode(mode)}
-                style={{ padding: '8px 11px', background: viewMode === mode ? 'rgba(255,255,255,0.1)' : 'none', border: 'none', color: viewMode === mode ? '#fff' : 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                {icon}
-              </button>
-            ))}
-          </div>
-          <button onClick={fetchFiles}
-            style={{ padding: '8px 11px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-            <RefreshCw size={13} />
-          </button>
-          <button onClick={() => navigate('/app/upload')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: 'rgba(41,151,255,0.12)', border: '1px solid rgba(41,151,255,0.28)', borderRadius: 9, color: '#2997ff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 700 }}>
-            <Plus size={13} /> Upload
-          </button>
-        </div>
+  const getDisplayFiles = () => {
+    if (activeSection === 'recent') return [...files].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20);
+    let base = files;
+    if (activeSection === 'starred') base = base.filter(f => starred.has(f._id));
+    if (currentFolder) base = base.filter(f => mimeMatchesFilter(f.mimeType || '', f.fileName || '', currentFolder));
+    base = base.filter(f =>
+      f.fileName?.toLowerCase().includes(search.toLowerCase()) &&
+      mimeMatchesFilter(f.mimeType || '', f.fileName || '', filterType)
+    );
+    return applySort(base);
+  };
+  const filtered = getDisplayFiles();
+
+  const folderCounts = FOLDER_DEFS
+    .map(fd => ({ ...fd, count: files.filter(f => mimeMatchesFilter(f.mimeType || '', f.fileName || '', fd.type)).length }))
+    .filter(fd => fd.count > 0);
+
+  const totalSize  = files.reduce((a, f) => a + (f.fileSize || 0), 0);
+  const quotaGB    = user?.storageQuotaGB || 2;
+  const usedGB     = user?.usedStorageGB  || 0;
+  const quotaPct   = Math.min(100, (usedGB / quotaGB) * 100);
+  const quotaColor = quotaPct > 90 ? '#ff375f' : quotaPct > 70 ? '#ff9f0a' : '#2997ff';
+
+  // Reusable card/row props builder
+  const itemProps = (file) => ({
+    file, onPreview: setPreviewFile, onDownload: handleDownload, onShare: setShareFile,
+    onDelete: (id) => setDelId(id), onReport: handleReport, onDrive: handleOpenGoogleDrive,
+    dlLoading, starred, onToggleStar: toggleStar,
+  });
+
+  // File grid/list renderer
+  const renderFiles = (list, showUploadCta, emptyIcon, emptyMsg) => {
+    if (loading) return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 12 }}>
+        {[0,1,2,3,4,5].map(i => <div key={i} style={{ height: 210, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 18, animation: 'pulse 1.5s ease infinite' }} />)}
       </div>
-
-      {/* Quota bar */}
-      {user?.storageQuotaGB && (
-        <div style={{ marginBottom: 18, padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>
-              <HardDrive size={13} /> Storage
-            </div>
-            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)' }}>{usedGB.toFixed(3)} GB / {quotaGB} GB</span>
-          </div>
-          <div style={{ height: 6, background: 'rgba(255,255,255,0.07)', borderRadius: 999 }}>
-            <motion.div animate={{ width: `${quotaPct}%` }} transition={{ duration: 0.6 }}
-              style={{ height: '100%', borderRadius: 999, background: quotaColor }} />
-          </div>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        <button style={tabBtn(tab === 'uploads')} onClick={() => setTab('uploads')}>
-          <HardDrive size={13} style={{ marginRight: 5, verticalAlign: 'middle' }} />My Uploads ({files.length})
-        </button>
-        <button style={tabBtn(tab === 'shared')} onClick={() => setTab('shared')}>
-          <Users size={13} style={{ marginRight: 5, verticalAlign: 'middle' }} />Shared With Me {shared.length > 0 && `(${shared.length})`}
-        </button>
-      </div>
-
-      {/* Toast */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            style={{ marginBottom: 14, padding: '10px 16px', background: toastErr ? 'rgba(255,55,95,0.08)' : 'rgba(41,151,255,0.08)', border: `1px solid ${toastErr ? 'rgba(255,55,95,0.3)' : 'rgba(41,151,255,0.25)'}`, borderRadius: 10, color: toastErr ? '#ff375f' : '#2997ff', fontSize: '0.84rem', fontWeight: 600 }}>
-            {toast}
-          </motion.div>
+    );
+    if (list.length === 0) return (
+      <div style={{ padding: '70px 24px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 18 }}>
+        {emptyIcon}
+        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem', marginTop: 14 }}>{emptyMsg}</div>
+        {showUploadCta && (
+          <button onClick={() => navigate('/app/upload')} style={{ marginTop: 14, padding: '9px 18px', background: 'rgba(41,151,255,0.12)', border: '1px solid rgba(41,151,255,0.3)', borderRadius: 9, color: '#2997ff', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Upload file now
+          </button>
         )}
-      </AnimatePresence>
+      </div>
+    );
+    if (viewMode === 'grid') return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 12 }}>
+        <AnimatePresence>
+          {list.map((file, i) => (
+            <motion.div key={file._id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ delay: i * 0.03 }}>
+              <FileCard {...itemProps(file)} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+    );
+    return (
+      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '3fr 80px 90px 110px 160px', padding: '11px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          {['Name','Size','Shards','Modified','Actions'].map((h, i) => (
+            <div key={i} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>{h}</div>
+          ))}
+        </div>
+        <AnimatePresence>
+          {list.map(file => <FileRow key={file._id} {...itemProps(file)} />)}
+        </AnimatePresence>
+      </div>
+    );
+  };
 
-      {/* ── MY UPLOADS ── */}
-      {tab === 'uploads' && (
-        <>
-          {loading ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
-              {[0,1,2,3,4,5].map(i => <div key={i} style={{ height: 220, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 18, animation: 'pulse 1.5s ease infinite' }} />)}
+  // Sidebar nav item
+  const NavItem = ({ section, icon, label, badge }) => {
+    const active = activeSection === section;
+    return (
+      <button onClick={() => goSection(section)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', marginBottom: 2,
+                 background: active ? 'rgba(41,151,255,0.1)' : 'transparent',
+                 border: 'none', borderLeft: `2px solid ${active ? '#2997ff' : 'transparent'}`,
+                 borderRadius: '0 10px 10px 0', cursor: 'pointer', fontFamily: 'inherit',
+                 color: active ? '#2997ff' : 'rgba(255,255,255,0.5)',
+                 fontSize: '0.87rem', fontWeight: active ? 700 : 500, textAlign: 'left', transition: 'all 0.14s' }}
+        onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}>
+        <span style={{ color: active ? '#2997ff' : 'rgba(255,255,255,0.35)', flexShrink: 0 }}>{icon}</span>
+        <span style={{ flex: 1 }}>{label}</span>
+        {badge != null && badge > 0 && (
+          <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px', background: active ? 'rgba(41,151,255,0.18)' : 'rgba(255,255,255,0.08)', borderRadius: 999, color: active ? '#2997ff' : 'rgba(255,255,255,0.35)' }}>{badge}</span>
+        )}
+      </button>
+    );
+  };
+
+  const sectionTitle =
+    currentFolder        ? currentFolder
+    : activeSection === 'recent'  ? 'Recent'
+    : activeSection === 'starred' ? 'Starred'
+    : activeSection === 'shared'  ? 'Shared with me'
+    : 'My Files';
+
+  return (
+    <div style={{ display: 'flex', position: 'relative', zIndex: 1, minHeight: '65vh' }}>
+
+      {/* ══ LEFT SIDEBAR ══════════════════════════════════════════════ */}
+      <div style={{ width: 214, flexShrink: 0, display: 'flex', flexDirection: 'column',
+                    paddingRight: 8, marginRight: 22, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+        {/* New Upload button */}
+        <button onClick={() => navigate('/app/upload')}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 18px', marginBottom: 22,
+                   background: 'rgba(41,151,255,0.13)', border: '1px solid rgba(41,151,255,0.35)',
+                   borderRadius: 14, color: '#2997ff', cursor: 'pointer', fontFamily: 'inherit',
+                   fontSize: '0.9rem', fontWeight: 800, width: '100%', transition: 'background 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(41,151,255,0.22)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(41,151,255,0.13)'}>
+          <Plus size={16} /> New Upload
+        </button>
+
+        <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(255,255,255,0.22)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 14px', marginBottom: 5 }}>MY STORACHAIN</div>
+        <NavItem section="myfiles"  icon={<HardDrive size={16} />} label="My Files"       badge={files.length} />
+        <NavItem section="recent"   icon={<Clock     size={16} />} label="Recent"         />
+        <NavItem section="starred"  icon={<Star      size={16} />} label="Starred"        badge={starred.size > 0 ? starred.size : null} />
+
+        <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(255,255,255,0.22)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 14px', marginTop: 16, marginBottom: 5 }}>SHARED</div>
+        <NavItem section="shared"   icon={<Users     size={16} />} label="Shared with me" badge={shared.length > 0 ? shared.length : null} />
+
+        {/* Storage quota at bottom */}
+        <div style={{ marginTop: 'auto', paddingTop: 28 }}>
+          <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', fontWeight: 600, color: 'rgba(255,255,255,0.38)', marginBottom: 8 }}>
+              <HardDrive size={12} /> Storage
             </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: '70px 24px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 18 }}>
-              <FolderOpen size={44} color="rgba(255,255,255,0.1)" style={{ marginBottom: 14 }} />
-              <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem' }}>
-                {search || filterType !== 'All' ? `No files matching filters` : 'No files yet — upload one!'}
-              </div>
-              {!search && filterType === 'All' && (
-                <button onClick={() => navigate('/app/upload')} style={{ marginTop: 14, padding: '9px 18px', background: 'rgba(41,151,255,0.12)', border: '1px solid rgba(41,151,255,0.3)', borderRadius: 9, color: '#2997ff', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Upload file now
+            <div style={{ height: 5, background: 'rgba(255,255,255,0.07)', borderRadius: 999, marginBottom: 7 }}>
+              <motion.div animate={{ width: `${quotaPct}%` }} transition={{ duration: 0.6 }}
+                style={{ height: '100%', borderRadius: 999, background: quotaColor }} />
+            </div>
+            <div style={{ fontSize: '0.69rem', color: 'rgba(255,255,255,0.3)' }}>{usedGB.toFixed(2)} / {quotaGB} GB used</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ══ MAIN CONTENT ══════════════════════════════════════════════ */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+
+        {/* ── Top toolbar ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+          {/* Breadcrumb + title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            {currentFolder && (
+              <>
+                <button onClick={() => setCurrentFolder(null)}
+                  style={{ background: 'none', border: 'none', color: '#2997ff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.95rem', fontWeight: 700, padding: 0 }}>
+                  My Files
                 </button>
+                <ChevronRight size={14} color="rgba(255,255,255,0.25)" />
+              </>
+            )}
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 900, letterSpacing: '-0.03em', color: '#fff', margin: 0 }}>
+              {sectionTitle}
+            </h1>
+            {activeSection === 'myfiles' && !currentFolder && (
+              <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.28)', fontWeight: 500, marginLeft: 4 }}>
+                {files.length} file{files.length !== 1 ? 's' : ''} · {fmt(totalSize)}
+              </span>
+            )}
+          </div>
+
+          {/* Toolbar (hidden for shared section) */}
+          {activeSection !== 'shared' && (
+            <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 11px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9 }}>
+                <Search size={12} color="rgba(255,255,255,0.3)" />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+                  style={{ background: 'none', border: 'none', color: '#fff', fontSize: '0.83rem', fontFamily: 'inherit', outline: 'none', width: 120 }} />
+                {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: 0, display: 'flex' }}><X size={11} /></button>}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setShowSort(v => !v)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600 }}>
+                  <Tag size={11} /> {sortBy} <ChevronDown size={11} />
+                </button>
+                {showSort && (
+                  <div style={{ position: 'absolute', top: 36, right: 0, background: '#111', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: 6, zIndex: 50, minWidth: 150 }}>
+                    {SORT_OPTIONS.map(o => (
+                      <button key={o} onClick={() => { setSortBy(o); setShowSort(false); }}
+                        style={{ display: 'block', width: '100%', padding: '7px 11px', background: sortBy === o ? 'rgba(41,151,255,0.1)' : 'transparent', border: 'none', borderRadius: 8, color: sortBy === o ? '#2997ff' : 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', textAlign: 'left', fontWeight: sortBy === o ? 700 : 400 }}>{o}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {!currentFolder && activeSection !== 'recent' && (
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => setShowFilter(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600 }}>
+                    {filterType} <ChevronDown size={11} />
+                  </button>
+                  {showFilter && (
+                    <div style={{ position: 'absolute', top: 36, right: 0, background: '#111', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: 6, zIndex: 50, minWidth: 120 }}>
+                      {FILTER_TYPES.map(t => (
+                        <button key={t} onClick={() => { setFilterType(t); setShowFilter(false); }}
+                          style={{ display: 'block', width: '100%', padding: '7px 11px', background: filterType === t ? 'rgba(41,151,255,0.1)' : 'transparent', border: 'none', borderRadius: 8, color: filterType === t ? '#2997ff' : 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', textAlign: 'left', fontWeight: filterType === t ? 700 : 400 }}>{t}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
-            </div>
-          ) : viewMode === 'grid' ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
-              <AnimatePresence>
-                {filtered.map((file, i) => (
-                  <motion.div key={file._id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ delay: i * 0.03 }}>
-                    <FileCard file={file} onPreview={setPreviewFile} onDownload={handleDownload} onShare={setShareFile} onDelete={(id) => setDelId(id)} onReport={handleReport} onDrive={handleOpenGoogleDrive} dlLoading={dlLoading} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          ) : (
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '3fr 80px 90px 110px 140px', padding: '11px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                {['Name','Size','Shards','Modified','Actions'].map((h, i) => (
-                  <div key={i} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>{h}</div>
+              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, overflow: 'hidden' }}>
+                {[{ mode: 'grid', icon: <Grid size={13} /> }, { mode: 'list', icon: <List size={13} /> }].map(({ mode, icon }) => (
+                  <button key={mode} onClick={() => setViewMode(mode)}
+                    style={{ padding: '7px 10px', background: viewMode === mode ? 'rgba(255,255,255,0.1)' : 'none', border: 'none', color: viewMode === mode ? '#fff' : 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    {icon}
+                  </button>
                 ))}
               </div>
-              <AnimatePresence>
-                {filtered.map(file => (
-                  <FileRow key={file._id} file={file} onPreview={setPreviewFile} onDownload={handleDownload} onShare={setShareFile} onDelete={(id) => setDelId(id)} onReport={handleReport} onDrive={handleOpenGoogleDrive} dlLoading={dlLoading} />
-                ))}
-              </AnimatePresence>
+              <button onClick={fetchFiles}
+                style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <RefreshCw size={13} />
+              </button>
             </div>
           )}
-        </>
-      )}
+        </div>
 
-      {/* ── SHARED WITH ME ── */}
-      {tab === 'shared' && (
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr 1fr 100px', padding: '11px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            {['File','From','Access','Granted','Action'].map((h, i) => (
-              <div key={i} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>{h}</div>
-            ))}
-          </div>
-          {sharedLoading ? (
-            <div style={{ padding: '40px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[0,1,2].map(i => <div key={i} style={{ height: 50, background: 'rgba(255,255,255,0.02)', borderRadius: 8, animation: 'pulse 1.5s ease infinite' }} />)}
+        {/* Toast */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              style={{ marginBottom: 14, padding: '10px 16px', background: toastErr ? 'rgba(255,55,95,0.08)' : 'rgba(41,151,255,0.08)', border: `1px solid ${toastErr ? 'rgba(255,55,95,0.3)' : 'rgba(41,151,255,0.25)'}`, borderRadius: 10, color: toastErr ? '#ff375f' : '#2997ff', fontSize: '0.84rem', fontWeight: 600 }}>
+              {toast}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ══ MY FILES ══ */}
+        {activeSection === 'myfiles' && (
+          <>
+            {/* Folder category cards – only at root when files are loaded */}
+            {!currentFolder && !loading && folderCounts.length > 0 && (
+              <div style={{ marginBottom: 26 }}>
+                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 10 }}>Folders</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 10 }}>
+                  {folderCounts.map(fd => (
+                    <motion.button key={fd.type} whileHover={{ y: -2 }} onClick={() => setCurrentFolder(fd.type)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px',
+                               background: `${fd.color}09`, border: `1px solid ${fd.color}22`,
+                               borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%', transition: 'border-color 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = `${fd.color}55`}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = `${fd.color}22`}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: `${fd.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {fd.icon(22)}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>{fd.type}</div>
+                        <div style={{ fontSize: '0.69rem', color: 'rgba(255,255,255,0.33)', marginTop: 2 }}>{fd.count} file{fd.count !== 1 ? 's' : ''}</div>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!currentFolder && !loading && files.length > 0 && (
+              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 10 }}>All Files</div>
+            )}
+            {currentFolder && !loading && (
+              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 10 }}>
+                {filtered.length} file{filtered.length !== 1 ? 's' : ''}
+              </div>
+            )}
+            {renderFiles(
+              filtered,
+              !search && filterType === 'All' && !currentFolder,
+              <FolderOpen size={44} color="rgba(255,255,255,0.1)" />,
+              search || filterType !== 'All' || currentFolder ? 'No files matching filters' : 'No files yet — upload one!'
+            )}
+          </>
+        )}
+
+        {/* ══ RECENT ══ */}
+        {activeSection === 'recent' && renderFiles(filtered, false, <Clock size={44} color="rgba(255,255,255,0.1)" />, 'No recent files')}
+
+        {/* ══ STARRED ══ */}
+        {activeSection === 'starred' && renderFiles(
+          filtered, false,
+          <Star size={44} color="rgba(255,255,255,0.1)" />,
+          starred.size === 0 ? 'No starred files — click ★ on any file to star it' : 'No starred files match your filters'
+        )}
+
+        {/* ══ SHARED WITH ME ══ */}
+        {activeSection === 'shared' && (
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr 1fr 100px', padding: '11px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              {['File','From','Access','Granted','Action'].map((h, i) => (
+                <div key={i} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>{h}</div>
+              ))}
             </div>
-          ) : shared.length === 0 ? (
-            <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-              <Share2 size={36} color="rgba(255,255,255,0.1)" style={{ marginBottom: 12 }} />
-              <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem' }}>No shared files yet</div>
-              <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem', marginTop: 5 }}>Files shared or purchased will appear here</div>
-            </div>
-          ) : shared.map((access, i) => {
-            const fr = access.fileRecordId;
-            const seller = access.sellerUserId;
-            const isShare = access.accessType === 'share';
-            return (
-              <motion.div key={access._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
-                style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr 1fr 100px', padding: '13px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-                  {fileIcon(fr?.fileName || '', fr?.mimeType || '', 16)}
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fr?.fileName || 'Unknown file'}</div>
-                    <div style={{ fontSize: '0.71rem', color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{fmt(fr?.fileSize)}</div>
+            {sharedLoading ? (
+              <div style={{ padding: '40px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[0,1,2].map(i => <div key={i} style={{ height: 50, background: 'rgba(255,255,255,0.02)', borderRadius: 8, animation: 'pulse 1.5s ease infinite' }} />)}
+              </div>
+            ) : shared.length === 0 ? (
+              <div style={{ padding: '60px 24px', textAlign: 'center' }}>
+                <Share2 size={36} color="rgba(255,255,255,0.1)" style={{ marginBottom: 12 }} />
+                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem' }}>No shared files yet</div>
+                <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem', marginTop: 5 }}>Files shared or purchased will appear here</div>
+              </div>
+            ) : shared.map((access, i) => {
+              const fr     = access.fileRecordId;
+              const seller = access.sellerUserId;
+              const isShr  = access.accessType === 'share';
+              return (
+                <motion.div key={access._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
+                  style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr 1fr 100px', padding: '13px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
+                    {fileIcon(fr?.fileName || '', fr?.mimeType || '', 16)}
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fr?.fileName || 'Unknown file'}</div>
+                      <div style={{ fontSize: '0.71rem', color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{fmt(fr?.fileSize)}</div>
+                    </div>
                   </div>
-                </div>
-                <div style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.55)' }}>{seller?.name || 'Unknown'}</div>
-                <div>
-                  <span style={{ display: 'inline-flex', padding: '3px 8px', background: isShare ? 'rgba(48,209,88,0.1)' : 'rgba(255,159,10,0.1)', border: `1px solid ${isShare ? 'rgba(48,209,88,0.25)' : 'rgba(255,159,10,0.25)'}`, borderRadius: 20, fontSize: '0.67rem', fontWeight: 700, color: isShare ? '#30d158' : '#ff9f0a' }}>
-                    {isShare ? 'Shared' : 'Purchased'}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>{timeAgo(access.grantedAt)}</div>
-                <div style={{ display: 'flex', gap: 5 }}>
-                  {fr?._id && (
-                    <button onClick={() => handleDownload(fr._id, fr.fileName || 'file')} disabled={dlLoading[fr._id]}
-                      style={{ padding: '6px 9px', background: 'rgba(41,151,255,0.1)', border: '1px solid rgba(41,151,255,0.2)', borderRadius: 7, color: '#2997ff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      {dlLoading[fr._id] ? <RefreshCw size={12} /> : <Download size={12} />}
-                    </button>
-                  )}
-                  {fr?.ipfsCid && (
-                    <a href={`https://gateway.pinata.cloud/ipfs/${fr.ipfsCid}`} target="_blank" rel="noreferrer"
-                      style={{ padding: '6px 9px', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 7, color: '#bf5af2', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-                      <ExternalLink size={12} />
-                    </a>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
+                  <div style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.55)' }}>{seller?.name || 'Unknown'}</div>
+                  <div>
+                    <span style={{ display: 'inline-flex', padding: '3px 8px', background: isShr ? 'rgba(48,209,88,0.1)' : 'rgba(255,159,10,0.1)', border: `1px solid ${isShr ? 'rgba(48,209,88,0.25)' : 'rgba(255,159,10,0.25)'}`, borderRadius: 20, fontSize: '0.67rem', fontWeight: 700, color: isShr ? '#30d158' : '#ff9f0a' }}>
+                      {isShr ? 'Shared' : 'Purchased'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>{timeAgo(access.grantedAt)}</div>
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    {fr?._id && (
+                      <button onClick={() => handleDownload(fr._id, fr.fileName || 'file')} disabled={dlLoading[fr._id]}
+                        style={{ padding: '6px 9px', background: 'rgba(41,151,255,0.1)', border: '1px solid rgba(41,151,255,0.2)', borderRadius: 7, color: '#2997ff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                        {dlLoading[fr._id] ? <RefreshCw size={12} /> : <Download size={12} />}
+                      </button>
+                    )}
+                    {fr?.ipfsCid && (
+                      <a href={`https://gateway.pinata.cloud/ipfs/${fr.ipfsCid}`} target="_blank" rel="noreferrer"
+                        style={{ padding: '6px 9px', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 7, color: '#bf5af2', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
 
-      {/* Delete confirm */}
-      {delId && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            style={{ background: '#111', border: '1px solid rgba(255,55,95,0.3)', borderRadius: 18, padding: '32px 36px', maxWidth: 360, textAlign: 'center' }}>
-            <Trash2 size={32} color="#ff375f" style={{ marginBottom: 12 }} />
-            <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: '0 0 8px' }}>Delete File?</h3>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: '0 0 24px' }}>The IPFS CID will remain accessible. Encrypted chunks will be cleaned up.</p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button onClick={() => setDelId(null)} style={{ padding: '9px 20px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}>Cancel</button>
-              <button onClick={() => handleDelete(delId)} style={{ padding: '9px 20px', background: 'rgba(255,55,95,0.15)', border: '1px solid rgba(255,55,95,0.4)', borderRadius: 9, color: '#ff375f', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}>Delete</button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+        {/* Delete confirm */}
+        {delId && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              style={{ background: '#111', border: '1px solid rgba(255,55,95,0.3)', borderRadius: 18, padding: '32px 36px', maxWidth: 360, textAlign: 'center' }}>
+              <Trash2 size={32} color="#ff375f" style={{ marginBottom: 12 }} />
+              <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: '0 0 8px' }}>Delete File?</h3>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: '0 0 24px' }}>The IPFS CID will remain accessible. Encrypted chunks will be cleaned up.</p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <button onClick={() => setDelId(null)} style={{ padding: '9px 20px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}>Cancel</button>
+                <button onClick={() => handleDelete(delId)} style={{ padding: '9px 20px', background: 'rgba(255,55,95,0.15)', border: '1px solid rgba(255,55,95,0.4)', borderRadius: 9, color: '#ff375f', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}>Delete</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
 
-      {/* Modals */}
-      <AnimatePresence>
-        {previewFile && <PreviewModal file={previewFile} onClose={() => setPreviewFile(null)} onDownload={handleDownload} dlLoading={dlLoading} />}
-        {shareFile && <ShareModal file={shareFile} onClose={() => setShareFile(null)} onSaved={handleShareSaved} origin={origin} />}
-      </AnimatePresence>
+        {/* Modals */}
+        <AnimatePresence>
+          {previewFile && <PreviewModal file={previewFile} onClose={() => setPreviewFile(null)} onDownload={handleDownload} dlLoading={dlLoading} />}
+          {shareFile   && <ShareModal   file={shareFile}   onClose={() => setShareFile(null)}   onSaved={handleShareSaved} origin={origin} />}
+        </AnimatePresence>
 
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:0.5}50%{opacity:1} }
-        @keyframes spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
-      `}</style>
+        <style>{`
+          @keyframes pulse { 0%,100%{opacity:0.5}50%{opacity:1} }
+          @keyframes spin   { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
+        `}</style>
+      </div>
     </div>
   );
 }

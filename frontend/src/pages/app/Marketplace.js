@@ -78,12 +78,11 @@ function BuyModal({ listing, user, onClose, onSuccess }) {
     try {
       setStep('processing');
       let res;
-      if (method === 'demo_usd') {
-        res = await api.post(`/marketplace/${listing._id}/purchase/demo-usd`);
-      } else if (method === 'token' && (priceSCT > 0 || (!hasSCT && !hasUSD))) {
-        // Use token route for SCT purchases AND for free (0 price) listings
+      if (method === 'token') {
         res = await api.post(`/marketplace/${listing._id}/purchase/token`);
-        setTxHash('');
+        setTxHash(res.data.txId || '');
+      } else if (method === 'demo_usd') {
+        res = await api.post(`/marketplace/${listing._id}/purchase/demo-usd`);
       } else {
         res = await api.post('/marketplace/purchase', { listingId: listing._id });
         setTxHash(res.data.txHash || '');
@@ -178,14 +177,6 @@ function BuyModal({ listing, user, onClose, onSuccess }) {
             </div>
             <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>File access has been granted. Check "Shared With Me" in My Files.</div>
             {txHash && <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.73rem', color: '#2997ff', textDecoration: 'none', display: 'block', marginTop: 6 }}>Tx: {txHash.slice(0,20)}…</a>}
-            {fileId && (
-              <button
-                onClick={() => downloadFile(fileId, listing.fileName).catch(e => alert(e.message))}
-                style={{ width: '100%', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', background: 'rgba(41,151,255,0.15)', border: '1px solid rgba(41,151,255,0.4)', borderRadius: 10, color: '#2997ff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700 }}
-              >
-                <Download size={14} /> Download File (Provider → Replica → IPFS → S3)
-              </button>
-            )}
           </div>
         )}
         {step === 'error' && (
@@ -198,7 +189,10 @@ function BuyModal({ listing, user, onClose, onSuccess }) {
         <div style={{ display: 'flex', gap: 10 }}>
           {step === 'success' ? (
             <>
-              <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Done</button>
+              <a href="/app/files" style={{ flex: 1, padding: '11px', background: 'rgba(48,209,88,0.12)', border: '1px solid rgba(48,209,88,0.35)', borderRadius: 10, color: '#30d158', textDecoration: 'none', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Download size={14} /> My Files
+              </a>
+              <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Close</button>
             </>
           ) : step === 'error' ? (
             <>
@@ -315,9 +309,9 @@ function ListPanel({ myFiles, onClose, onCreated, onFileUploaded }) {
               <Plus size={12} /> {uploading ? 'Uploading...' : 'Upload New File'}
               <input type="file" onChange={handleQuickUpload} disabled={uploading} style={{ display: 'none' }} />
             </label>
-            <select value={fileId} onChange={e => setFileId(e.target.value)} style={{ ...I, cursor: 'pointer', colorScheme: 'dark' }}>
+            <select value={fileId} onChange={e => setFileId(e.target.value)} style={{ ...I, cursor: 'pointer' }}>
               <option value="">— Choose a file —</option>
-              {myFiles.map(f => <option key={f._id} value={f._id}>{f.fileName} ({fmt(f.fileSize)})</option>)}
+              {myFiles.map(f => <option key={f._id} value={f._id} style={{ color: '#111' }}>{f.fileName} ({fmt(f.fileSize)})</option>)}
             </select>
             {selectedFile && !selectedFile.ipfsCid && !isPrivate && (
               <div style={{ marginTop: 5, fontSize: '0.71rem', color: '#ff9f0a' }}>⚠ File not yet pinned to IPFS — listing will use pending CID</div>
@@ -354,9 +348,9 @@ function ListPanel({ myFiles, onClose, onCreated, onFileUploaded }) {
               </div>
               <div>
                 <label style={{ fontSize: '0.68rem', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Category</label>
-                <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...I, cursor: 'pointer', colorScheme: 'dark' }}>
+                <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...I, cursor: 'pointer' }}>
                   <option value="">— Select category —</option>
-                  {['Media','Documents','Archives','Software','Data'].map(c => <option key={c} value={c}>{c}</option>)}
+                  {['Media','Documents','Archives','Software','Data'].map(c => <option key={c} value={c} style={{ color: '#111' }}>{c}</option>)}
                 </select>
               </div>
               <div>
@@ -485,20 +479,9 @@ function ListingCard({ listing, onBuy, onDelete, onReport, onCopyLink, currentUs
             Remove Listing
           </button>
         ) : hasAccess ? (
-          <button
-            onClick={() => {
-              const fid = listing.fileRecordId?._id || listing.fileRecordId;
-              if (fid) {
-                downloadFile(fid, listing.fileName).catch(e => alert('Download failed: ' + e.message));
-              } else if (listing.shareToken) {
-                window.open(`/share/${listing.shareToken}`, '_blank');
-              } else {
-                alert('File download unavailable. Please visit My Files.');
-              }
-            }}
-            style={{ width: '100%', padding: '10px', background: 'rgba(41,151,255,0.12)', border: '1px solid rgba(41,151,255,0.3)', borderRadius: 9, color: '#2997ff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-          >
-            <Download size={13} /> Download File
+          <button onClick={() => { window.location.href = '/app/files'; }}
+            style={{ width: '100%', padding: '10px', background: 'rgba(48,209,88,0.12)', border: '1px solid rgba(48,209,88,0.3)', borderRadius: 9, color: '#30d158', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <CheckCircle size={13} /> Access Granted
           </button>
         ) : (
           <button onClick={() => onBuy(listing)}

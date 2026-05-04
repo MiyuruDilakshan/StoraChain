@@ -213,37 +213,6 @@ export default function MyStorageNode({ user }) {
         </motion.div>
       )}
 
-      {node.hardware && Object.keys(node.hardware).length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23, duration: 0.45 }}
-          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '18px 22px', marginBottom: 22 }}>
-          <h3 style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, margin: '0 0 12px' }}>Local Device Information</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: '0.64rem', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>OS</div>
-              <div style={{ fontSize: '0.84rem', color: '#fff', fontWeight: 700 }}>{node.hardware.os || 'N/A'}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.64rem', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>CPU</div>
-              <div style={{ fontSize: '0.84rem', color: '#fff', fontWeight: 700 }}>{node.hardware.cpu || 'N/A'} ({node.hardware.cores || 0} Cores)</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.64rem', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>RAM</div>
-              <div style={{ fontSize: '0.84rem', color: '#fff', fontWeight: 700 }}>{node.hardware.ramTotalGB || 0} GB ({node.hardware.ramFreeGB || 0} GB Free)</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.64rem', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>IP Address</div>
-              <div style={{ fontSize: '0.84rem', color: '#fff', fontWeight: 700 }}>{node.hardware.ip || 'Auto-detected'}</div>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-            <div>
-               <div style={{ fontSize: '0.64rem', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Storage Path</div>
-               <div style={{ fontSize: '0.84rem', color: '#fff', fontWeight: 700 }}>{node.hardware.diskPath || 'N/A'}</div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
       {/* Edit settings */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.5 }}
         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '22px 26px' }}>
@@ -258,9 +227,10 @@ export default function MyStorageNode({ user }) {
         </div>
 
         {!editing ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginTop: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginTop: 16 }}>
             {[
               { label: 'Capacity',     value: `${node.capacityGB} GB` },
+              { label: 'System Price', value: `${node.systemPricePerGB ?? node.pricePerGB} SCT` },
               { label: 'Region',       value: node.region || 'Not set' },
             ].map((f, i) => (
               <div key={i} style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>

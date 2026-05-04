@@ -26,8 +26,8 @@ export default function AbuseReport() {
       setErr('Screenshot must be an image file.');
       return;
     }
-    if (file.size > 1.5 * 1024 * 1024) {
-      setErr('Screenshot must be 1.5 MB or smaller.');
+    if (file.size > 5 * 1024 * 1024) {
+      setErr('Screenshot must be 5 MB or smaller.');
       return;
     }
 
@@ -89,12 +89,12 @@ export default function AbuseReport() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <select value={targetType} onChange={e => setTargetType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', colorScheme: 'dark' }}>
-              <option value="file">File</option>
-              <option value="listing">Marketplace Listing</option>
-              <option value="user">User</option>
-              <option value="provider">Provider Node</option>
-              <option value="other">Other</option>
+            <select value={targetType} onChange={e => setTargetType(e.target.value)} style={inputStyle}>
+              <option value="file" style={{ color: '#111' }}>File</option>
+              <option value="listing" style={{ color: '#111' }}>Marketplace Listing</option>
+              <option value="user" style={{ color: '#111' }}>User</option>
+              <option value="provider" style={{ color: '#111' }}>Provider Node</option>
+              <option value="other" style={{ color: '#111' }}>Other</option>
             </select>
 
             <input value={targetId} onChange={e => setTargetId(e.target.value)} placeholder="Target ID (optional)" style={inputStyle} />
