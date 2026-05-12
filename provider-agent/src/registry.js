@@ -174,8 +174,47 @@ async function sendHeartbeat({ backendUrl, jwt, storageManager, integrityMonitor
   }
 }
 
+/**
+ * Poll the backend for chunks queued for this provider (NAT bypass pull model).
+ * Agents behind home-router NAT can't receive pushed chunks, so the backend queues
+ * them and the agent polls + downloads on a 5-second interval.
+ */
+async function pollChunkQueue({ backendUrl, jwt, storageManager }) {
+  if (!backendUrl || !jwt) return;
+  try {
+    const listRes = await axios.get(`${backendUrl}/api/providers/chunk-queue`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+      timeout: 5000,
+    });
+    const chunks = listRes.data.chunks || [];
+    if (chunks.length === 0) return;
+
+    console.log(`[Agent] ${chunks.length} chunk(s) in pull queue — downloading...`);
+    for (const chunkId of chunks) {
+      try {
+        const chunkRes = await axios.get(`${backendUrl}/api/providers/chunk-queue/${chunkId}`, {
+          headers: { Authorization: `Bearer ${jwt}` },
+          responseType: 'arraybuffer',
+          timeout: 30000,
+        });
+        const buffer = Buffer.from(chunkRes.data);
+        storageManager.saveChunk(chunkId, buffer);
+        // Confirm receipt so backend removes it from queue
+        await axios.delete(`${backendUrl}/api/providers/chunk-queue/${chunkId}`, {
+          headers: { Authorization: `Bearer ${jwt}` },
+          timeout: 5000,
+        });
+        console.log(`[Agent] ✓ Pulled chunk: ${chunkId} (${buffer.length} bytes)`);
+      } catch (e) {
+        console.warn(`[Agent] Failed to pull chunk ${chunkId}:`, e.message);
+      }
+    }
+  } catch (_) {
+    // Non-critical — agent keeps running
+  }
+}
+
 async function deactivateWithBackend({ backendUrl, jwt }) {
-  if (!backendUrl || !jwt) return false;
 
   try {
     await axios.post(
@@ -194,4 +233,4 @@ async function deactivateWithBackend({ backendUrl, jwt }) {
   }
 }
 
-module.exports = { registerWithBackend, sendHeartbeat, deactivateWithBackend };
+module.exports = { registerWithBackend, sendHeartbeat, deactivateWithBackend, pollChunkQueue };

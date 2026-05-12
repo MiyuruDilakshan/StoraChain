@@ -5,7 +5,7 @@ require('dotenv').config();
 const StorageManager                  = require('./src/storage');
 const IntegrityMonitor                = require('./src/integrity');
 const createAgentServer               = require('./src/server');
-const { registerWithBackend, sendHeartbeat, deactivateWithBackend } = require('./src/registry');
+const { registerWithBackend, sendHeartbeat, deactivateWithBackend, pollChunkQueue } = require('./src/registry');
 
 // ── Argument parsing ──────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -179,6 +179,11 @@ async function start() {
           onlineTicks++;
         } catch (_) { /* heartbeat failure is non-critical */ }
       }, 30000);
+
+      // ── Poll chunk queue every 5s (NAT bypass for home-PC providers) ──
+      setInterval(() => {
+        pollChunkQueue({ backendUrl: BACKEND_URL, jwt: AGENT_JWT, storageManager: storage });
+      }, 5000);
 
     } else {
       console.log('[Agent] No JWT found — running in standalone mode (no backend registration).');

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const StorageListing = require('../models/StorageListing');
+const PendingChunk = require('../models/PendingChunk');
 const { estimateSystemPricePerGB } = require('../services/pricingService');
 const { processIntegrityReport, resetProviderPenalties } = require('../services/penaltyService');
 
@@ -692,6 +693,44 @@ router.get('/disk-info', authMiddleware, async (req, res) => {
     }
   } catch (err) {
     console.error('[Providers] disk-info error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// ── Chunk Pull Queue (NAT bypass) ─────────────────────────────────────────────
+// Provider agent polls this to download chunks that the backend couldn't push
+// directly (home PC behind router NAT).
+
+// GET /api/providers/chunk-queue  →  list pending chunk IDs for this provider
+router.get('/chunk-queue', authMiddleware, async (req, res) => {
+  try {
+    const pending = await PendingChunk.find({ providerId: req.user.id }).select('chunkId createdAt').lean();
+    res.json({ chunks: pending.map(p => p.chunkId) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/providers/chunk-queue/:chunkId  →  download the raw chunk binary
+router.get('/chunk-queue/:chunkId', authMiddleware, async (req, res) => {
+  try {
+    const pending = await PendingChunk.findOne({ chunkId: req.params.chunkId, providerId: req.user.id });
+    if (!pending) return res.status(404).json({ message: 'Chunk not found or already claimed' });
+    res.set('Content-Type', 'application/octet-stream');
+    res.set('x-chunk-id', pending.chunkId);
+    res.send(pending.data);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE /api/providers/chunk-queue/:chunkId  →  confirm receipt, remove from queue
+router.delete('/chunk-queue/:chunkId', authMiddleware, async (req, res) => {
+  try {
+    await PendingChunk.deleteOne({ chunkId: req.params.chunkId, providerId: req.user.id });
+    res.json({ success: true });
+  } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 });

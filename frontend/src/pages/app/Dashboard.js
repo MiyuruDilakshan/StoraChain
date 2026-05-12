@@ -141,18 +141,35 @@ export default function Dashboard({ user }) {
 
   useEffect(() => {
     if (providerNode && providerNode.capacityGB === 0 && disks.length === 0) {
-      // Fetch disks
-      api.get('/providers/disk-info').then(res => {
-        setDisks(res.data.disks || []);
-        if (res.data.disks?.length > 0) {
-          const first = res.data.disks[0];
-          setSelectedDisk(first.mountpoint);
-          const suggested = Math.floor(first.freeGB * 0.8 * 10) / 10;
-          setConfigForm({ diskPath: first.mountpoint, capacityGB: String(suggested > 1 ? suggested : 1), walletAddress: '' });
-        }
-      }).catch(e => {
-        setConfigError(e.response?.data?.message || 'Failed to fetch disk info.');
-      });
+      // Try agent directly first (works from same PC even behind NAT)
+      const agentPortMatch = providerNode?.agentUrl?.match(/:(\d+)$/);
+      const agentPort = agentPortMatch ? agentPortMatch[1] : '3001';
+      fetch(`http://localhost:${agentPort}/disk-info`)
+        .then(r => r.ok ? r.json() : Promise.reject(r))
+        .then(data => {
+          const diskList = data.disks || [];
+          setDisks(diskList);
+          if (diskList.length > 0) {
+            const first = diskList[0];
+            setSelectedDisk(first.mountpoint);
+            const suggested = Math.floor(first.freeGB * 0.8 * 10) / 10;
+            setConfigForm({ diskPath: first.mountpoint, capacityGB: String(suggested > 1 ? suggested : 1), walletAddress: '' });
+          }
+        })
+        .catch(() => {
+          // Fallback to backend proxy
+          api.get('/providers/disk-info').then(res => {
+            setDisks(res.data.disks || []);
+            if (res.data.disks?.length > 0) {
+              const first = res.data.disks[0];
+              setSelectedDisk(first.mountpoint);
+              const suggested = Math.floor(first.freeGB * 0.8 * 10) / 10;
+              setConfigForm({ diskPath: first.mountpoint, capacityGB: String(suggested > 1 ? suggested : 1), walletAddress: '' });
+            }
+          }).catch(e => {
+            setConfigError(e.response?.data?.message || 'Failed to fetch disk info.');
+          });
+        });
     }
   }, [providerNode, disks.length]);
 

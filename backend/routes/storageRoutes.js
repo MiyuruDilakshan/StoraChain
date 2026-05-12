@@ -8,6 +8,7 @@ const FileRecord = require('../models/FileRecord');
 const StorageListing = require('../models/StorageListing');
 const User = require('../models/User');
 const FileAccess = require('../models/FileAccess');
+const PendingChunk = require('../models/PendingChunk');
 const { shardBuffer, reassembleChunks } = require('../services/fileService');
 const { pinBuffer } = require('../services/pinataService');
 const { rewardProvider } = require('../services/tokenService');
@@ -195,6 +196,13 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
 
       if (!primaryOk) {
         console.warn(`[Storage] Primary upload failed for chunk ${chunkId}: ${primaryResult.reason?.message}`);
+        // Queue for agent to pull (handles home-PC NAT / firewall)
+        try {
+          await PendingChunk.create({ chunkId, providerId: primary.providerId, data: chunkBuffer });
+          console.log(`[Storage] Chunk ${chunkId} queued for provider pull (${primary.providerId})`);
+        } catch (qErr) {
+          console.warn(`[Storage] Failed to queue chunk ${chunkId}:`, qErr.message);
+        }
       }
 
       // Reward providers non-blocking
