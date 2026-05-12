@@ -7,6 +7,9 @@ const { spawnSync } = require('child_process');
 const IS_WINDOWS    = process.platform === 'win32';
 const RESERVE_BLOCK = 4 * 1024 * 1024;   // 4 MB write blocks
 
+// Optional reference to the IntegrityMonitor — set after construction
+let _integrityMonitor = null;
+
 /**
  * StorageManager — stealth encrypted chunk vault.
  *
@@ -32,6 +35,9 @@ const RESERVE_BLOCK = 4 * 1024 * 1024;   // 4 MB write blocks
  */
 
 class StorageManager {
+  /** Allow the agent to wire up the IntegrityMonitor post-construction */
+  static setIntegrityMonitor(monitor) { _integrityMonitor = monitor; }
+
   constructor(storageDir, maxCapacityGB) {
     this.storageDir       = path.resolve(storageDir || './storachain-storage');
     this.maxCapacityBytes = Math.max(0, Math.floor(maxCapacityGB * 1024 * 1024 * 1024));
@@ -67,9 +73,7 @@ class StorageManager {
     this.chunkDir = IS_WINDOWS ? null : path.join(this.vaultDir, 'chunks');
 
     this.metaFile    = path.join(this.vaultDir, 'meta.json');
-    this.reserveFile = path.join(this.storageDir, IS_WINDOWS
-      ? `.$svcres_${vaultId}.tmp`
-      : `.storachain_reserve_${vaultId}`);
+    this.reserveFile = path.join(this.storageDir, 'StoraChain_Reserved_Space.bin');
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -149,6 +153,10 @@ class StorageManager {
     meta.chunks[chunkId] = { size: data.length, savedAt: new Date().toISOString() };
     this._writeMeta(meta);
     this._rebalanceReserve();
+
+    // ── Integrity: record checksum right after write ────────────
+    if (_integrityMonitor) _integrityMonitor.recordChunk(chunkId, data);
+
     return chunkId;
   }
 
@@ -174,6 +182,9 @@ class StorageManager {
     delete meta.chunks[chunkId];
     this._writeMeta(meta);
     this._rebalanceReserve();
+
+    // ── Integrity: remove checksum ──────────────────────────────
+    if (_integrityMonitor) _integrityMonitor.forgetChunk(chunkId);
   }
 
   wipeAllChunks() {
@@ -195,7 +206,7 @@ class StorageManager {
 
   releaseReservation() {
     if (IS_WINDOWS && fs.existsSync(this.reserveFile)) {
-      spawnSync('attrib', ['-r', '-s', '-h', this.reserveFile], { stdio: 'ignore', shell: true });
+      spawnSync('attrib', ['-r', this.reserveFile], { stdio: 'ignore', windowsHide: true });
     }
     try { fs.rmSync(this.reserveFile, { force: true }); } catch { /* ignore */ }
   }
@@ -205,7 +216,7 @@ class StorageManager {
     this.releaseReservation();
     if (fs.existsSync(this.vaultDir)) {
       if (IS_WINDOWS) {
-        spawnSync('attrib', ['-r', '-s', '-h', '/s', '/d', this.vaultDir], { stdio: 'ignore', shell: true });
+        spawnSync('attrib', ['-r', '-s', '-h', '/s', '/d', this.vaultDir], { stdio: 'ignore', windowsHide: true });
       }
       try { fs.rmSync(this.vaultDir, { recursive: true, force: true }); } catch { /* ignore */ }
     }
@@ -246,7 +257,7 @@ class StorageManager {
 
     try {
       if (IS_WINDOWS && fs.existsSync(this.reserveFile)) {
-        spawnSync('attrib', ['-r', this.reserveFile], { stdio: 'ignore', shell: true });
+        spawnSync('attrib', ['-r', this.reserveFile], { stdio: 'ignore', windowsHide: true });
       }
 
       // Create the file if it doesn't exist (truncateSync requires the file to pre-exist)
@@ -259,7 +270,12 @@ class StorageManager {
       // but no actual blocks are written until real data fills them.
       fs.truncateSync(this.reserveFile, target);
 
-      this._applyHiding(this.reserveFile);
+      // Make it read-only so the user doesn't accidentally delete it
+      if (IS_WINDOWS) {
+        spawnSync('attrib', ['+r', this.reserveFile], { stdio: 'ignore', windowsHide: true });
+      } else {
+        fs.chmodSync(this.reserveFile, 0o444);
+      }
     } catch (err) {
       // Non-fatal: log but do not crash the agent
       if (err.code !== 'ENOSPC') {
@@ -280,7 +296,7 @@ class StorageManager {
     if (!fs.existsSync(targetPath)) return;
     try {
       if (IS_WINDOWS) {
-        spawnSync('attrib', ['+h', '+s', targetPath], { stdio: 'ignore', shell: true });
+        spawnSync('attrib', ['+h', '+s', targetPath], { stdio: 'ignore', windowsHide: true });
       } else {
         fs.chmodSync(targetPath, 0o700);
       }

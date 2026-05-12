@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { HardDrive, CheckCircle, AlertCircle, RefreshCw, Wifi, WifiOff, Coins, Save, Disc, Info } from 'lucide-react';
+import { HardDrive, CheckCircle, AlertCircle, RefreshCw, Wifi, Save, Info, Trash2, Shield, ShieldAlert, ShieldCheck, AlertTriangle, Clock } from 'lucide-react';
 import api from '../../api/client';
 
 const FV = { hidden:{opacity:0,y:20}, show:{opacity:1,y:0,transition:{duration:0.5}} };
@@ -14,17 +14,6 @@ function Toast({ msg, err }) {
   );
 }
 
-function StatCard({ label, value, accent, icon }) {
-  return (
-    <div style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${accent}22`, borderRadius:14, padding:'18px 20px', display:'flex', alignItems:'center', gap:14 }}>
-      <div style={{ width:40, height:40, borderRadius:10, background:accent+'18', display:'flex', alignItems:'center', justifyContent:'center' }}>{icon}</div>
-      <div>
-        <div style={{ fontSize:'1.35rem', fontWeight:900, color:accent, lineHeight:1 }}>{value}</div>
-        <div style={{ fontSize:'0.68rem', color:'rgba(255,255,255,0.35)', marginTop:4, textTransform:'uppercase', letterSpacing:'0.07em' }}>{label}</div>
-      </div>
-    </div>
-  );
-}
 
 export default function MyStorageNode({ user }) {
   const [node,    setNode]    = useState(null);
@@ -41,6 +30,14 @@ export default function MyStorageNode({ user }) {
 
   // Form
   const [form, setForm] = useState({ capacityGB:'', walletAddress:'', region:'local', diskPath:'' });
+
+  // Integrity / Anti-cheat
+  const [integrity,        setIntegrity]        = useState(null);
+  const [integrityLoading, setIntegrityLoading] = useState(false);
+
+  // Uninstall logic
+  const [uninstallStage, setUninstallStage] = useState(0); // 0=none, 1=confirm, 2=progress
+  const [uninstallLogs, setUninstallLogs] = useState([]);
 
   const showMsg = (m, err=false) => { setToast(m); setToastErr(err); setTimeout(()=>setToast(''), 4000); };
   const fmtGB = v => v >= 1 ? `${Number(v).toFixed(1)} GB` : `${(v*1024).toFixed(0)} MB`;
@@ -61,8 +58,22 @@ export default function MyStorageNode({ user }) {
         });
         if (data.hardware?.diskPath) setSelectedDisk(data.hardware.diskPath);
       }
-    } catch (e) { setNode(null); }
+    } catch (e) {
+      if (e?.response?.status !== 404) {
+        console.warn('[MyStorageNode] fetchNode:', e.message);
+      }
+      setNode(null);
+    }
     finally { setLoading(false); }
+  };
+
+  const fetchIntegrity = async () => {
+    setIntegrityLoading(true);
+    try {
+      const { data } = await api.get('/providers/integrity-report');
+      setIntegrity(data);
+    } catch { /* non-critical */ }
+    setIntegrityLoading(false);
   };
 
   const fetchDisks = async () => {
@@ -81,7 +92,13 @@ export default function MyStorageNode({ user }) {
   };
 
   useEffect(() => { fetchNode(); }, []);
-  useEffect(() => { if (node) fetchDisks(); }, [node?._id]);
+  useEffect(() => { if (node) { fetchDisks(); fetchIntegrity(); } }, [node?._id]);
+  // Re-poll integrity every 60 seconds
+  useEffect(() => {
+    if (!node) return;
+    const timer = setInterval(fetchIntegrity, 60000);
+    return () => clearInterval(timer);
+  }, [node?._id]);
 
   const handleDiskSelect = (disk) => {
     setSelectedDisk(disk.mountpoint);
@@ -117,12 +134,56 @@ export default function MyStorageNode({ user }) {
       setNode(data);
       showMsg('Node settings saved successfully!');
     } catch (e) {
-      showMsg(e.response?.data?.message || 'Save failed', true);
+      showMsg('Failed to save settings', true);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
-  if (loading) return (
+  const handleTogglePause = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.put('/providers/toggle-pause');
+      setNode(data.listing);
+      showMsg(data.message, false);
+      if (data.listing.isPaused) {
+        showMsg('Node paused. You will not receive new storage chunks.', false);
+      } else {
+        showMsg('Node online! Ensure the background agent is running.', false);
+      }
+    } catch (e) {
+      showMsg('Failed to toggle status', true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUninstall = async () => {
+    setUninstallStage(2);
+    setUninstallLogs([]);
+    const addLog = (msg) => setUninstallLogs(prev => [...prev, msg]);
+    try {
+      addLog('Initiating uninstall process...');
+      await new Promise(r => setTimeout(r, 800));
+      addLog('Contacting background agent...');
+      const { data } = await api.post('/providers/uninstall');
+      addLog('Agent stopped and chunks deleted.');
+      await new Promise(r => setTimeout(r, 800));
+      const freedGB = ((data.agentData?.releasedBytes || 0) / (1024 ** 3)).toFixed(2);
+      addLog(`Freed ${freedGB} GB of reserved disk storage.`);
+      await new Promise(r => setTimeout(r, 800));
+      addLog('PM2 background process terminated.');
+      addLog('Provider successfully uninstalled.');
+      await new Promise(r => setTimeout(r, 1500));
+      setNode(null);
+      setUninstallStage(0);
+    } catch (e) {
+      addLog('Error: ' + (e.response?.data?.message || e.message));
+      setTimeout(() => setUninstallStage(0), 3000);
+    }
+  };
+
+  if (loading && !node) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:300, flexDirection:'column', gap:16 }}>
       <RefreshCw size={28} color="rgba(255,255,255,0.2)" style={{ animation:'spin 1s linear infinite' }}/>
       <p style={{ color:'rgba(255,255,255,0.3)', fontSize:'0.88rem' }}>Loading node status...</p>
@@ -131,18 +192,52 @@ export default function MyStorageNode({ user }) {
   );
 
   if (!node) return (
-    <motion.div variants={FV} initial="hidden" animate="show" style={{ maxWidth:700 }}>
-      <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
-      <div style={{ background:'rgba(255,159,10,0.06)', border:'1px solid rgba(255,159,10,0.2)', borderRadius:18, padding:'32px', textAlign:'center' }}>
-        <AlertCircle size={48} color="#ff9f0a" style={{ marginBottom:16 }}/>
-        <h2 style={{ fontSize:'1.2rem', fontWeight:800, color:'#fff', margin:'0 0 12px' }}>No Provider Node Found</h2>
-        <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'0.9rem', lineHeight:1.7, margin:'0 0 24px' }}>
-          Your provider agent is not registered yet.<br/>
-          Please run the StoraChain installer (<strong>windows-setup.bat</strong> or <strong>linux-setup.sh</strong>) as Administrator, then come back here.
+    <motion.div variants={FV} initial="hidden" animate="show" style={{ maxWidth: 680 }}>
+      <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} } @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
+
+      {/* Hero banner */}
+      <div style={{ background: 'linear-gradient(135deg,rgba(191,90,242,0.08),rgba(41,151,255,0.06))', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 20, padding: '32px 32px 28px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle,rgba(191,90,242,0.12) 0%,transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+          <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(255,159,10,0.12)', border: '1px solid rgba(255,159,10,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <HardDrive size={26} color="#ff9f0a" />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.03em' }}>Provider Node Not Installed</h2>
+            <p style={{ color: 'rgba(255,255,255,0.4)', margin: '4px 0 0', fontSize: '0.85rem' }}>Your node agent is not running on this device</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+          {[
+            { n: '1', label: 'Run Installer', desc: 'windows-setup.bat or linux-setup.sh', color: '#bf5af2' },
+            { n: '2', label: 'Select Disk', desc: 'Choose storage & set GB amount', color: '#2997ff' },
+            { n: '3', label: 'Go Online', desc: 'Toggle node ON to start earning', color: '#30d158' },
+          ].map(s => (
+            <div key={s.n} style={{ background: `${s.color}0a`, border: `1px solid ${s.color}22`, borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ fontSize: '0.62rem', fontWeight: 800, color: s.color, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Step {s.n}</div>
+              <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#fff', marginBottom: 4 }}>{s.label}</div>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.4 }}>{s.desc}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <a href="/app/setup" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 22px', background: 'rgba(191,90,242,0.15)', border: '1px solid rgba(191,90,242,0.4)', borderRadius: 11, color: '#bf5af2', fontWeight: 700, fontSize: '0.88rem', textDecoration: 'none' }}>
+            View Full Setup Guide →
+          </a>
+          <button onClick={fetchNode} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '12px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <RefreshCw size={13} /> Check Again
+          </button>
+        </div>
+      </div>
+
+      {/* Info box */}
+      <div style={{ background: 'rgba(48,209,88,0.05)', border: '1px solid rgba(48,209,88,0.15)', borderRadius: 14, padding: '16px 20px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <CheckCircle size={16} color="#30d158" style={{ flexShrink: 0, marginTop: 2 }} />
+        <p style={{ margin: 0, fontSize: '0.83rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.65 }}>
+          Once you run the installer and the agent is active, this page will automatically show your node configuration, disk usage, and earnings. No page refresh needed — just run the bat/sh script and come back.
         </p>
-        <a href="/app/setup" style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'11px 24px', background:'rgba(255,159,10,0.12)', border:'1px solid rgba(255,159,10,0.3)', borderRadius:10, color:'#ff9f0a', fontFamily:'inherit', fontWeight:700, fontSize:'0.88rem', textDecoration:'none' }}>
-          View Setup Guide →
-        </a>
       </div>
     </motion.div>
   );
@@ -152,27 +247,58 @@ export default function MyStorageNode({ user }) {
       <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
       <Toast msg={toast} err={toastErr}/>
 
-      {/* Header */}
-      <div style={{ marginBottom:28, display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
-        <div>
-          <h1 style={{ fontSize:'2rem', fontWeight:900, letterSpacing:'-0.04em', color:'#fff', margin:0 }}>My Storage Node</h1>
-          <p style={{ color:'rgba(255,255,255,0.35)', margin:'6px 0 0', fontSize:'0.9rem' }}>Configure your storage contribution and earn SCT rewards</p>
+      {/* VPN-Style Master Toggle */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.6 }}
+        style={{
+          background: 'rgba(255,255,255,0.03)', border: `1px solid ${!node.isPaused ? 'rgba(48,209,88,0.2)' : 'rgba(255,55,95,0.2)'}`,
+          borderRadius: 24, padding: '28px 34px', marginBottom: 24, position: 'relative', zIndex: 2,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20,
+          overflow: 'hidden', backdropFilter: 'blur(10px)'
+        }}
+      >
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: `radial-gradient(circle at 0% 0%, ${!node.isPaused ? '#30d15811' : '#ff375f11'} 0%, transparent 50%)`, pointerEvents: 'none' }} />
+        
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: !node.isPaused ? '#30d158' : '#ff375f', boxShadow: `0 0 12px ${!node.isPaused ? '#30d158' : '#ff375f'}` }} />
+            <span style={{ fontSize: '0.82rem', fontWeight: 800, color: !node.isPaused ? '#30d158' : '#ff375f', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Node {!node.isPaused ? 'Active' : 'Paused'}
+            </span>
+          </div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.03em' }}>
+            {!node.isPaused ? 'Accepting new storage chunks' : 'Maintenance mode active'}
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.35)', margin: 0, fontSize: '0.86rem', maxWidth: 450 }}>
+            {!node.isPaused 
+              ? 'Your node is reachable and serving files to the network.' 
+              : 'Pause your node before performing disk maintenance or system updates.'}
+          </p>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background: node.isActive ? 'rgba(48,209,88,0.1)' : 'rgba(255,55,95,0.1)', border:`1px solid ${node.isActive?'rgba(48,209,88,0.3)':'rgba(255,55,95,0.3)'}`, borderRadius:10 }}>
-          {node.isActive ? <Wifi size={14} color="#30d158"/> : <WifiOff size={14} color="#ff375f"/>}
-          <span style={{ fontSize:'0.8rem', fontWeight:700, color: node.isActive?'#30d158':'#ff375f' }}>
-            {node.isActive ? 'Agent Active' : 'Agent Inactive'}
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <motion.div 
+            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            onClick={handleTogglePause}
+            style={{
+              width: 80, height: 80, borderRadius: '50%', cursor: loading ? 'wait' : 'pointer',
+              background: !node.isPaused ? 'rgba(48,209,88,0.1)' : 'rgba(255,55,95,0.1)',
+              border: `3px solid ${!node.isPaused ? '#30d158' : '#ff375f'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 0 30px ${!node.isPaused ? '#30d15818' : '#ff375f18'}`,
+              transition: 'all 0.3s ease'
+            }}
+          >
+            {loading ? (
+              <RefreshCw size={24} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
+            ) : (
+              <Wifi size={24} color={!node.isPaused ? '#30d158' : '#ff375f'} />
+            )}
+          </motion.div>
+          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
+            {loading ? '...' : `Go ${!node.isPaused ? 'Offline' : 'Online'}`}
           </span>
         </div>
-      </div>
-
-      {/* Stats row */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:12, marginBottom:24 }}>
-        <StatCard label="Storage Used" value={fmtGB(node.usedGB||0)} accent="#2997ff" icon={<HardDrive size={18} color="#2997ff"/>}/>
-        <StatCard label="Total Capacity" value={fmtGB(node.capacityGB||0)} accent="#bf5af2" icon={<Disc size={18} color="#bf5af2"/>}/>
-        <StatCard label="Total Earnings" value={`${(node.totalEarnings||0).toFixed(2)} SCT`} accent="#ff9f0a" icon={<Coins size={18} color="#ff9f0a"/>}/>
-        <StatCard label="Uptime" value={`${node.uptimePct??0}%`} accent="#30d158" icon={<CheckCircle size={18} color="#30d158"/>}/>
-      </div>
+      </motion.div>
 
       {/* Usage bar */}
       <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, padding:'20px 22px', marginBottom:24 }}>
@@ -308,7 +434,7 @@ export default function MyStorageNode({ user }) {
             {[
               ['OS', node.hardware.os], ['CPU', node.hardware.cpu],
               ['Cores', node.hardware.cores], ['RAM', `${node.hardware.ramFreeGB?.toFixed(1)||'?'} / ${node.hardware.ramTotalGB?.toFixed(1)||'?'} GB`],
-              ['Agent URL', node.agentUrl], ['Region', node.region],
+              ['Agent URL', node.agentUrl], ['Region', node.region], ['Public IP', node.hardware.ip || 'Unknown']
             ].filter(([,v])=>v).map(([l,v],i)=>(
               <div key={i}>
                 <div style={{ fontSize:'0.62rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', color:'rgba(255,255,255,0.25)', marginBottom:4 }}>{l}</div>
@@ -316,6 +442,148 @@ export default function MyStorageNode({ user }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── Integrity & Anti-Cheat Panel ──────────────────────────────── */}
+      <div style={{ marginTop:16, background:'rgba(255,255,255,0.02)', border:`1px solid ${integrity?.integrityHealthy === false ? 'rgba(255,55,95,0.25)' : 'rgba(48,209,88,0.15)'}`, borderRadius:14, padding:'20px 22px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+          <h4 style={{ fontSize:'0.8rem', fontWeight:700, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.08em', margin:0, display:'flex', alignItems:'center', gap:6 }}>
+            {integrity?.integrityHealthy === false ? <ShieldAlert size={14} color="#ff375f"/> : <ShieldCheck size={14} color="#30d158"/>}
+            Node Integrity &amp; Anti-Cheat
+          </h4>
+          <div style={{ display:'flex', gap:6 }}>
+            <a href="/app/help" style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', background:'rgba(191,90,242,0.08)', border:'1px solid rgba(191,90,242,0.2)', borderRadius:7, color:'#bf5af2', fontSize:'0.72rem', fontWeight:700, textDecoration:'none' }}>
+              ? FAQ
+            </a>
+            <button onClick={fetchIntegrity} disabled={integrityLoading}
+              style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:7, color:'rgba(255,255,255,0.5)', cursor:'pointer', fontSize:'0.72rem', fontFamily:'inherit', fontWeight:600 }}>
+              <RefreshCw size={11} style={{ animation:integrityLoading?'spin 1s linear infinite':'none' }}/> Refresh
+            </button>
+          </div>
+        </div>
+
+        {integrity?.isSuspended && (
+          <div style={{ background:'rgba(255,55,95,0.1)', border:'1px solid rgba(255,55,95,0.3)', borderRadius:10, padding:'14px 16px', marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, color:'#ff375f', fontWeight:800, fontSize:'0.88rem', marginBottom:6 }}>
+              <ShieldAlert size={16}/> Node Suspended
+            </div>
+            <p style={{ margin:0, color:'rgba(255,255,255,0.5)', fontSize:'0.8rem', lineHeight:1.5 }}>
+              {integrity.suspensionReason || 'This node has been automatically suspended due to integrity violations.'}
+            </p>
+          </div>
+        )}
+
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12, marginBottom:16 }}>
+          {[
+            {
+              label: 'Reputation Score',
+              value: integrity ? `${Math.round(integrity.reputationScore || 0)}/100` : '—',
+              color: integrity ? (integrity.reputationScore >= 80 ? '#30d158' : integrity.reputationScore >= 50 ? '#ff9f0a' : '#ff375f') : 'rgba(255,255,255,0.4)',
+              icon: <Shield size={14}/>,
+            },
+            {
+              label: 'Penalty Points',
+              value: integrity ? `${integrity.penaltyPoints || 0}` : '—',
+              color: integrity ? (integrity.penaltyPoints === 0 ? '#30d158' : integrity.penaltyPoints < 25 ? '#ff9f0a' : '#ff375f') : 'rgba(255,255,255,0.4)',
+              icon: <AlertTriangle size={14}/>,
+            },
+            {
+              label: 'Storage Reservation',
+              value: integrity ? (integrity.integrityHealthy !== false ? 'Intact' : 'Compromised') : '—',
+              color: integrity ? (integrity.integrityHealthy !== false ? '#30d158' : '#ff375f') : 'rgba(255,255,255,0.4)',
+              icon: <HardDrive size={14}/>,
+            },
+            {
+              label: 'Total Violations',
+              value: integrity ? `${integrity.totalViolations || 0}` : '—',
+              color: integrity ? (integrity.totalViolations === 0 ? '#30d158' : '#ff9f0a') : 'rgba(255,255,255,0.4)',
+              icon: <AlertCircle size={14}/>,
+            },
+            {
+              label: 'Last Check',
+              value: integrity?.lastIntegrityCheck ? new Date(integrity.lastIntegrityCheck).toLocaleTimeString() : 'Pending…',
+              color: 'rgba(255,255,255,0.5)',
+              icon: <Clock size={14}/>,
+            },
+          ].map((item, i) => (
+            <div key={i} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10, padding:'12px 14px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:5, color:'rgba(255,255,255,0.3)', fontSize:'0.62rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>
+                {item.icon} {item.label}
+              </div>
+              <div style={{ fontSize:'1rem', fontWeight:800, color:item.color }}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Recent violations */}
+        {integrity?.recentViolations?.length > 0 && (
+          <div style={{ background:'rgba(255,55,95,0.05)', border:'1px solid rgba(255,55,95,0.15)', borderRadius:10, padding:'14px 16px' }}>
+            <div style={{ fontSize:'0.72rem', fontWeight:700, color:'#ff375f', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>
+              Recent Violations
+            </div>
+            {integrity.recentViolations.slice().reverse().map((v, i) => (
+              <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:6, fontSize:'0.78rem', color:'rgba(255,255,255,0.5)' }}>
+                <AlertCircle size={11} color="#ff375f" style={{ flexShrink:0, marginTop:2 }}/>
+                <span><strong style={{ color:'rgba(255,255,255,0.7)' }}>{v.type}</strong> — {v.detail}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {integrity && !integrity.isSuspended && integrity.integrityHealthy !== false && (
+          <div style={{ marginTop:12, display:'flex', alignItems:'center', gap:8, color:'#30d158', fontSize:'0.8rem', fontWeight:600 }}>
+            <CheckCircle size={14}/> All integrity checks passing. No violations detected.
+          </div>
+        )}
+      </div>
+
+      {/* Danger Zone */}
+
+      <div style={{ marginTop:40, paddingTop:24, borderTop:'1px solid rgba(255,55,95,0.2)' }}>
+        <h4 style={{ fontSize:'0.9rem', fontWeight:800, color:'#ff375f', margin:'0 0 12px' }}>Danger Zone</h4>
+        <p style={{ color:'rgba(255,255,255,0.4)', fontSize:'0.82rem', marginBottom:16, lineHeight:1.5 }}>
+          Uninstalling your node will delete all stored chunks, release your physically reserved disk space, and automatically kill the background PM2 agent.
+        </p>
+        <button onClick={() => setUninstallStage(1)}
+          style={{ padding:'12px 24px', background:'rgba(255,55,95,0.1)', border:'1px solid rgba(255,55,95,0.3)', borderRadius:10, color:'#ff375f', fontSize:'0.85rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
+          <Trash2 size={16}/> Uninstall Node
+        </button>
+      </div>
+
+      {/* Uninstall Modal */}
+      {uninstallStage > 0 && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(5px)', padding:24 }}>
+          <motion.div initial={{ opacity:0, scale:0.95 }} animate={{ opacity:1, scale:1 }}
+            style={{ background:'#0d1117', border:'1px solid rgba(255,55,95,0.3)', borderRadius:20, padding:32, width:'100%', maxWidth:440 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+              <div style={{ width:48, height:48, borderRadius:'50%', background:'rgba(255,55,95,0.15)', display:'flex', alignItems:'center', justifyContent:'center', color:'#ff375f' }}>
+                <AlertCircle size={24}/>
+              </div>
+              <h2 style={{ fontSize:'1.25rem', fontWeight:800, color:'#fff', margin:0 }}>Uninstall Provider</h2>
+            </div>
+            
+            {uninstallStage === 1 ? (
+              <>
+                <p style={{ color:'rgba(255,255,255,0.6)', fontSize:'0.9rem', lineHeight:1.6, marginBottom:24 }}>
+                  Are you absolutely sure you want to uninstall your StoraChain node? This action is <strong>irreversible</strong> and will immediately delete all local storage chunks.
+                </p>
+                <div style={{ display:'flex', gap:12 }}>
+                  <button onClick={handleUninstall} style={{ flex:1, padding:'12px', background:'#ff375f', border:'none', borderRadius:10, color:'#fff', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Yes, Uninstall Node</button>
+                  <button onClick={() => setUninstallStage(0)} style={{ flex:1, padding:'12px', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:10, color:'#fff', fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Cancel</button>
+                </div>
+              </>
+            ) : (
+              <div>
+                <p style={{ color:'rgba(255,255,255,0.8)', fontSize:'0.95rem', marginBottom:20, fontWeight:600, display:'flex', alignItems:'center', gap:10 }}>
+                  <RefreshCw size={16} style={{ animation:'spin 1s linear infinite' }}/> Uninstalling...
+                </p>
+                <div style={{ background:'rgba(0,0,0,0.5)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:10, padding:16, fontFamily:'monospace', fontSize:'0.8rem', color:'#30d158', display:'flex', flexDirection:'column', gap:8, height:150, overflowY:'auto' }}>
+                  {uninstallLogs.map((l,i) => <div key={i}>{'>'} {l}</div>)}
+                </div>
+              </div>
+            )}
+          </motion.div>
         </div>
       )}
     </motion.div>

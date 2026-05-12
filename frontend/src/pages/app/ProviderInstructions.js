@@ -1,50 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Terminal, Copy, CheckCircle, ChevronDown, ChevronUp, Zap, Shield, HardDrive, Wifi, ExternalLink, Download } from 'lucide-react';
+import { Terminal, Copy, CheckCircle, ChevronDown, ChevronUp, Zap, Shield, HardDrive, ExternalLink, Download, Trash2 } from 'lucide-react';
 import api from '../../api/client';
 
 const STEPS = [
   {
     n:    1,
-    icon: <Download size={18} color="#2997ff" />,
-    ac:   '#2997ff',
-    title: 'Download the Provider Agent',
-    desc:  'The provider agent is a lightweight Node.js daemon that runs on your machine and serves storage requests from the network.',
-    code:  null,
-    note:  'Min requirements: Node.js 18+, 1 GB RAM, stable internet',
+    icon: <Terminal size={18} color="#bf5af2" />,
+    ac:   '#bf5af2',
+    title: 'Install the StoraChain Agent',
+    desc:  'Run the installer for your operating system. It will automatically detect your environment and install necessary background services.',
+    code:  '# Windows (Run as Admin):\nwindows-setup.bat\n\n# Linux / VPS:\nsh linux-setup.sh',
+    note:  'Ensure you have Node.js 18+ installed before running. The script will ask for your email/password to link your node.',
   },
   {
     n:    2,
-    icon: <Terminal size={18} color="#bf5af2" />,
-    ac:   '#bf5af2',
-    title: 'Install dependencies',
-    code:  'cd storachain-agent\nnpm install',
-    note:  null,
+    icon: <Shield size={18} color="#ff9f0a" />,
+    ac:   '#ff9f0a',
+    title: 'Open Node Setup Page',
+    desc:  'Once the agent is running and logged in, navigate to the "Node Setup" tab in this dashboard.',
+    code:  null,
+    note:  'Your agent will auto-detect your local hardware and report it to the network.',
   },
   {
     n:    3,
-    icon: <Shield size={18} color="#ff9f0a" />,
-    ac:   '#ff9f0a',
-    title: 'Configure your wallet & space',
-    code:  'cp .env.example .env\n# Edit .env and set:\nWALLET_ADDRESS=0xYourWalletHere\nSPACE_GB=20\nREGION=EU',
-    note:  'Your selected capacity is reserved on disk immediately. StoraChain keeps encrypted shards in a hidden vault and maintains a reserve file so the allocated space stays unavailable to normal use until you uninstall.',
+    icon: <HardDrive size={18} color="#2997ff" />,
+    ac:   '#2997ff',
+    title: 'Select Disk & Storage Amount',
+    desc:  'Choose the physical disk you want to use. We recommend using a dedicated partition or an external drive with at least 50GB free.',
+    code:  null,
+    note:  'Set the "Storage to Contribute" (GB). We will create a physical file to reserve this space (Anti-Cheat).',
   },
   {
     n:    4,
     icon: <Zap size={18} color="#30d158" />,
     ac:   '#30d158',
-    title: 'Start the agent',
-    code:  'node agent.js start\n# Or with flags:\nnode agent.js start --space 20 --port 3001 --wallet 0xYourWallet',
-    note:  'The agent registers itself with the StoraChain network automatically.',
-  },
-  {
-    n:    5,
-    icon: <Wifi size={18} color="#64d2ff" />,
-    ac:   '#64d2ff',
-    title: 'Verify your node is visible',
+    title: 'Save & Go Online',
+    desc:  'Click "Save Node Settings" then use the master toggle to go ONLINE.',
     code:  null,
-    note:  'Return to the StoraChain dashboard and check "My Storage Node" — your node should appear as ONLINE within 1–2 minutes.',
-  },
+    note:  'Your node is now active! You will start receiving storage chunks and earning SCT tokens.',
+  }
 ];
 
 function CopyBtn({ text }) {
@@ -86,16 +81,9 @@ function FAQ({ q, a }) {
 export default function ProviderInstructions() {
   const [active, setActive] = useState(null);
   const [node, setNode] = useState(null);
-  const [cliProvider, setCliProvider] = useState(null);
 
   useEffect(() => {
     api.get('/providers/me').then((r) => setNode(r.data)).catch(() => setNode(null));
-    const providerId = localStorage.getItem('providerId');
-    if (providerId) {
-      api.get(`/providers/cli/${providerId}/dashboard`)
-        .then((r) => setCliProvider(r.data?.provider || null))
-        .catch(() => setCliProvider(null));
-    }
   }, []);
 
   return (
@@ -129,7 +117,7 @@ export default function ProviderInstructions() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
           <div style={{ fontSize: '0.82rem', color: '#fff' }}>Provider Listing: <span style={{ color: node ? '#30d158' : '#ff9f0a' }}>{node ? 'Registered' : 'Not registered'}</span></div>
-          <div style={{ fontSize: '0.82rem', color: '#fff' }}>Service: <span style={{ color: cliProvider?.status === 'online' ? '#30d158' : '#ff9f0a' }}>{cliProvider?.status || 'Unknown'}</span></div>
+          <div style={{ fontSize: '0.82rem', color: '#fff' }}>Service: <span style={{ color: node?.isActive ? '#30d158' : '#ff9f0a' }}>{node ? (node.isActive ? 'Online' : 'Offline') : 'Checking…'}</span></div>
           <div style={{ fontSize: '0.82rem', color: '#fff' }}>System Price: <span style={{ color: '#64d2ff' }}>{node?.systemPricePerGB ?? '—'} SCT/GB</span></div>
         </div>
       </div>
@@ -213,12 +201,24 @@ export default function ProviderInstructions() {
         <FAQ q="How do I upgrade the agent?" a="Pull the latest release from GitHub and restart: git pull && npm install && node agent.js restart" />
       </div>
 
-      <div style={{ marginTop: 22, padding: '18px 20px', background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.22)', borderRadius: 16 }}>
-        <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#ff9f0a', marginBottom: 8 }}>Uninstall</div>
-        <pre style={{ margin: 0, padding: '14px 16px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#fff', fontSize: '0.82rem', overflowX: 'auto' }}>{`cd provider-agent\nnode agent.js --uninstall --dir ./storachain-storage`}</pre>
-        <p style={{ margin: '10px 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.82rem', lineHeight: 1.6 }}>
-          This command destroys locally stored encrypted chunks, releases the reserved capacity back to the provider disk, and marks the node offline so replication can move any remaining responsibility to other providers and backup tiers.
+      <div style={{ marginTop: 22, padding: '24px 28px', background: 'rgba(255,55,95,0.05)', border: '1px solid rgba(255,55,95,0.15)', borderRadius: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <Trash2 size={20} color="#ff375f" />
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ff375f', margin: 0 }}>Uninstallation Process</h2>
+        </div>
+        <p style={{ margin: '0 0 16px', color: 'rgba(255,255,255,0.5)', fontSize: '0.88rem', lineHeight: 1.6 }}>
+          To gracefully remove your node from the StoraChain network and reclaim your disk space, follow these steps:
         </p>
+        <ol style={{ margin: '0 0 20px', paddingLeft: 20, color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', lineHeight: 1.8 }}>
+          <li>Go to the <strong style={{ color: '#fff' }}>My Storage Node</strong> page.</li>
+          <li>Scroll down to the <strong style={{ color: '#ff375f' }}>Danger Zone</strong> section.</li>
+          <li>Click <strong style={{ color: '#fff' }}>Uninstall Node</strong> and confirm.</li>
+          <li>The agent will automatically wipe stored chunks and delete the reserved space file.</li>
+        </ol>
+        <div style={{ padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
+          <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: 4 }}>Manual CLI Uninstall</div>
+          <code style={{ fontSize: '0.8rem', color: '#fff' }}>node agent.js --uninstall --dir ./storachain-storage</code>
+        </div>
       </div>
     </div>
   );

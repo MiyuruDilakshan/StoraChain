@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FolderOpen, Upload,
   ShoppingBag, BarChart2, Wallet, Terminal,
   User, HardDrive, LogOut, Coins, ShieldAlert, CreditCard,
-  Shield, Users, Server, Activity, Settings,
+  Shield, Users, Server, Activity, Settings, HelpCircle,
 } from 'lucide-react';
 
 const W = 224;
@@ -21,6 +21,7 @@ const seekerNav = [
   { to: '/app/plans',       icon: <CreditCard      size={17}/>, label: 'My Plan'     },
   { to: '/app/analytics',   icon: <BarChart2       size={17}/>, label: 'Analytics'   },
   { to: '/app/abuse',       icon: <ShieldAlert     size={17}/>, label: 'Safety'      },
+  { to: '/app/help',        icon: <HelpCircle      size={17}/>, label: 'Help & FAQ'  },
   { to: '/app/profile',     icon: <User            size={17}/>, label: 'Profile'     },
 ];
 
@@ -32,6 +33,7 @@ const providerNav = [
   { to: '/app/analytics',   icon: <BarChart2       size={17}/>, label: 'Analytics'        },
   { to: '/app/abuse',       icon: <ShieldAlert     size={17}/>, label: 'Safety'           },
   { to: '/app/setup',       icon: <Terminal        size={17}/>, label: 'Node Setup'       },
+  { to: '/app/help',        icon: <HelpCircle      size={17}/>, label: 'Help & FAQ'       },
   { to: '/app/profile',     icon: <User            size={17}/>, label: 'Profile'          },
 ];
 
@@ -39,6 +41,7 @@ const providerNav = [
 const adminNav = [
   { to: '/admin',           icon: <Shield      size={17}/>, label: 'Admin Dashboard', end: true },
   { to: '/app/marketplace', icon: <ShoppingBag size={17}/>, label: 'Marketplace'              },
+  { to: '/app/help',        icon: <HelpCircle  size={17}/>, label: 'Help & FAQ'              },
 ];
 
 /* ── component ──────────────────────────────────── */

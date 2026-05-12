@@ -590,10 +590,16 @@ router.get('/providers/online', async (req, res) => {
       })
     );
 
-    const onlineCount  = results.filter(p => p.isOnline).length;
-    const offlineCount = results.filter(p => !p.isOnline).length;
+    // Deduplicate by Agent URL for the summary count (if 23 registrations point to one agent, it counts as 1 node)
+    const uniqueOnline = new Set(results.filter(p => p.isOnline).map(p => p.agentUrl)).size;
+    const uniqueTotal  = new Set(results.map(p => p.agentUrl)).size;
 
-    res.json({ providers: results, onlineCount, offlineCount, total: results.length });
+    res.json({ 
+      providers: results, 
+      onlineCount: uniqueOnline, 
+      offlineCount: Math.max(0, uniqueTotal - uniqueOnline), 
+      total: uniqueTotal 
+    });
   } catch (err) {
     console.error('[Admin] Online providers error:', err.message);
     res.status(500).json({ message: 'Server error' });

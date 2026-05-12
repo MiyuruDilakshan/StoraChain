@@ -85,6 +85,30 @@ module.exports = function createAgentServer(storageManager, agentKey) {
   });
 
   /**
+   * POST /update-config
+   * Backend sends updated configuration. The agent updates its .env and restarts/applies it.
+   */
+  app.post('/update-config', verifyAgentKey, (req, res) => {
+    try {
+      const { capacityGB, diskPath, walletAddress } = req.body;
+      const fs = require('fs');
+      const path = require('path');
+      const envPath = path.join(process.cwd(), '.env');
+      
+      if (fs.existsSync(envPath)) {
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        if (capacityGB !== undefined) envContent = envContent.replace(/^SPACE_GB=.*$/m, `SPACE_GB=${capacityGB}`);
+        if (diskPath !== undefined) envContent = envContent.replace(/^STORAGE_DIR=.*$/m, `STORAGE_DIR=${diskPath.replace(/\\/g, '\\\\')}`);
+        if (walletAddress !== undefined) envContent = envContent.replace(/^WALLET_ADDRESS=.*$/m, `WALLET_ADDRESS=${walletAddress}`);
+        fs.writeFileSync(envPath, envContent);
+      }
+      res.json({ success: true, message: 'Agent configuration updated.' });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  /**
    * GET /health
    * Public endpoint — backend polls this to verify node is online.
    * Also used by the heartbeat for uptime calculation.
@@ -118,6 +142,14 @@ module.exports = function createAgentServer(storageManager, agentKey) {
       storageManager.wipeAllChunks();
       storageManager.releaseReservation();
       res.json({ success: true, deletedChunks, releasedBytes: storageManager.maxCapacityBytes });
+
+      // Stop PM2 process after sending response
+      setTimeout(() => {
+        try {
+          require('child_process').execSync('pm2 delete storachain-provider', { windowsHide: true });
+        } catch(e) {}
+        process.exit(0);
+      }, 1000);
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
@@ -129,6 +161,76 @@ module.exports = function createAgentServer(storageManager, agentKey) {
    */
   app.get('/chunks', verifyAgentKey, (req, res) => {
     res.json({ chunks: storageManager.listChunks() });
+  });
+
+  /**
+   * GET /disk-info
+   * Get available disk space on the provider's machine.
+   * Uses pure Node.js fs.statfsSync — zero external processes, zero CMD windows.
+   */
+  app.get('/disk-info', async (req, res) => {
+    try {
+      const fs = require('fs');
+      const isWin = process.platform === 'win32';
+      let disks = [];
+      if (isWin) {
+        // Probe common drive letters using native fs.statfsSync — no wmic, no CMD flash
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        for (const letter of letters) {
+          const root = `${letter}:\\`;
+          try {
+            if (!fs.existsSync(root)) continue;
+            const stats = fs.statfsSync(root);
+            const totalBytes = stats.blocks * stats.bsize;
+            const freeBytes  = stats.bfree  * stats.bsize;
+            if (totalBytes > 0) {
+              disks.push({
+                name: `${letter}:`,
+                mountpoint: root,
+                freeGB: parseFloat((freeBytes / (1024 ** 3)).toFixed(2)),
+                totalGB: parseFloat((totalBytes / (1024 ** 3)).toFixed(2)),
+              });
+            }
+          } catch { /* drive not ready or inaccessible */ }
+        }
+      } else {
+        // Linux/macOS: read /proc/mounts or use df as fallback
+        try {
+          const mounts = fs.readFileSync('/proc/mounts', 'utf8').split('\n')
+            .filter(l => l.startsWith('/dev/'))
+            .map(l => l.split(/\s+/));
+          for (const [, mountpoint] of mounts) {
+            try {
+              const stats = fs.statfsSync(mountpoint);
+              const totalBytes = stats.blocks * stats.bsize;
+              const freeBytes  = stats.bfree  * stats.bsize;
+              if (totalBytes > 0) {
+                disks.push({
+                  name: mountpoint,
+                  mountpoint,
+                  totalGB: parseFloat((totalBytes / (1024 ** 3)).toFixed(2)),
+                  freeGB: parseFloat((freeBytes / (1024 ** 3)).toFixed(2)),
+                });
+              }
+            } catch { /* skip */ }
+          }
+        } catch {
+          // Fallback: just report root
+          try {
+            const stats = fs.statfsSync('/');
+            disks.push({
+              name: '/',
+              mountpoint: '/',
+              totalGB: parseFloat((stats.blocks * stats.bsize / (1024 ** 3)).toFixed(2)),
+              freeGB: parseFloat((stats.bfree * stats.bsize / (1024 ** 3)).toFixed(2)),
+            });
+          } catch { /* ignore */ }
+        }
+      }
+      res.json({ disks });
+    } catch (err) {
+      res.status(500).json({ message: 'Failed to read disks', error: err.message });
+    }
   });
 
   return app;

@@ -26,6 +26,7 @@ import AbuseReport        from './pages/app/AbuseReport';
 import UninstallGuide    from './pages/app/UninstallGuide';
 import Plans             from './pages/app/Plans';
 import PlansPayment      from './pages/app/PlansPayment';
+import Help              from './pages/app/Help';
 
 // Public shared file page
 import SharedFile from './pages/app/SharedFile';
@@ -81,6 +82,7 @@ function App() {
         <Route path="/app/uninstall"  element={<AppRoute element={<UninstallGuide />} />} />
         <Route path="/app/plans"      element={<AppRoute element={<Plans />} />} />
         <Route path="/app/plans/payment" element={<AppRoute element={<PlansPayment />} />} />
+        <Route path="/app/help"          element={<AppRoute element={<Help />} />} />
 
         {/* Admin — protected by role guard, wrapped in AppLayout */}
         <Route path="/admin" element={<AdminRoute element={<AppRoute element={<AdminDashboard />} />} />} />

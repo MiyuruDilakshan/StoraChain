@@ -6,6 +6,7 @@ import {
   CheckCircle, XCircle, AlertCircle, Shield,
   FileText, ShoppingBag, Settings, Trash2, Edit3,
   Search, Filter, Eye, BarChart2, Wifi, WifiOff, Zap,
+  ShieldAlert, ShieldCheck, AlertTriangle, Clock, Flag,
 } from 'lucide-react';
 import api from '../../api/client';
 
@@ -16,7 +17,7 @@ const short = (h, n = 8) => h ? `${h.slice(0, n)}…${h.slice(-6)}` : '—';
 const fmtGB = v => v >= 1 ? `${Number(v).toFixed(2)} GB` : `${(v * 1024).toFixed(0)} MB`;
 const fmtBytes = b => { if (!b) return '—'; if (b < 1048576) return `${(b/1024).toFixed(1)} KB`; if (b < 1073741824) return `${(b/1048576).toFixed(1)} MB`; return `${(b/1073741824).toFixed(2)} GB`; };
 
-const TABS = ['Overview', 'Users', 'Providers', 'Provider Monitor', 'Files', 'Marketplace', 'Transactions', 'Reward Cycles', 'Risk Posture', 'Abuse Reports', 'Settings'];
+const TABS = ['Overview', 'Users', 'Providers', 'Provider Monitor', 'Files', 'Marketplace', 'Transactions', 'Reward Cycles', 'Risk Posture', 'Provider Integrity', 'Abuse Reports', 'Settings'];
 
 /* ── shared Badge component ──────────────────────────────────────────────── */
 function Badge({ v, map }) {
@@ -29,9 +30,11 @@ function Badge({ v, map }) {
 }
 
 const STATUS_MAP = {
-  active:    { c: '#30d158', bg: 'rgba(48,209,88,0.1)',  border: 'rgba(48,209,88,0.3)',  label: 'Active' },
-  suspended: { c: '#ff9f0a', bg: 'rgba(255,159,10,0.1)', border: 'rgba(255,159,10,0.3)', label: 'Suspended' },
-  banned:    { c: '#ff375f', bg: 'rgba(255,55,95,0.1)',  border: 'rgba(255,55,95,0.3)',  label: 'Banned' },
+  active:    { c: '#30d158', bg: 'rgba(48,209,88,0.12)',  border: 'rgba(48,209,88,0.3)',  label: 'Active' },
+  offline:   { c: '#888888', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)', label: 'Offline' },
+  paused:    { c: '#ff9f0a', bg: 'rgba(255,159,10,0.12)', border: 'rgba(255,159,10,0.3)', label: 'Paused' },
+  suspended: { c: '#ff9f0a', bg: 'rgba(255,159,10,0.12)', border: 'rgba(255,159,10,0.3)', label: 'Suspended' },
+  banned:    { c: '#ff375f', bg: 'rgba(255,55,95,0.12)',  border: 'rgba(255,55,95,0.3)',  label: 'Banned' },
   _:         { c: 'rgba(255,255,255,0.4)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)', label: 'Unknown' },
 };
 const HEALTH_MAP = {
@@ -204,7 +207,7 @@ function UserEditModal({ user, onClose, onSave, onDelete }) {
               <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
               <select value={form[key]} onChange={e => set(key, e.target.value)}
                 style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, color: '#fff', fontSize: '0.82rem', padding: '8px 10px', fontFamily: 'inherit' }}>
-                {opts.map(o => <option key={o} value={o}>{o[0].toUpperCase() + o.slice(1)}</option>)}
+                {opts.map(o => <option key={o} value={o} style={{ background: '#1e293b', color: '#fff' }}>{o[0].toUpperCase() + o.slice(1)}</option>)}
               </select>
             </div>
           ))}
@@ -283,23 +286,23 @@ function UsersTab({ users, onUpdateUser, onDeleteUser }) {
             style={{ ...inputStyle, border: 'none', background: 'transparent', padding: 0, width: 180 }} />
         </div>
         <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(0); }} style={selStyle}>
-          <option value="all">All Roles</option>
-          <option value="seeker">Seeker</option>
-          <option value="provider">Provider</option>
-          <option value="admin">Admin</option>
+          <option value="all" style={{ background: '#1e293b', color: '#fff' }}>All Roles</option>
+          <option value="seeker" style={{ background: '#1e293b', color: '#fff' }}>Seeker</option>
+          <option value="provider" style={{ background: '#1e293b', color: '#fff' }}>Provider</option>
+          <option value="admin" style={{ background: '#1e293b', color: '#fff' }}>Admin</option>
         </select>
         <select value={planFilter} onChange={e => { setPlanFilter(e.target.value); setPage(0); }} style={selStyle}>
-          <option value="all">All Plans</option>
-          <option value="free">Free</option>
-          <option value="basic">Basic</option>
-          <option value="pro">Pro</option>
-          <option value="premium">Premium</option>
+          <option value="all" style={{ background: '#1e293b', color: '#fff' }}>All Plans</option>
+          <option value="free" style={{ background: '#1e293b', color: '#fff' }}>Free</option>
+          <option value="basic" style={{ background: '#1e293b', color: '#fff' }}>Basic</option>
+          <option value="pro" style={{ background: '#1e293b', color: '#fff' }}>Pro</option>
+          <option value="premium" style={{ background: '#1e293b', color: '#fff' }}>Premium</option>
         </select>
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }} style={selStyle}>
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="suspended">Suspended</option>
-          <option value="banned">Banned</option>
+          <option value="all" style={{ background: '#1e293b', color: '#fff' }}>All Status</option>
+          <option value="active" style={{ background: '#1e293b', color: '#fff' }}>Active</option>
+          <option value="suspended" style={{ background: '#1e293b', color: '#fff' }}>Suspended</option>
+          <option value="banned" style={{ background: '#1e293b', color: '#fff' }}>Banned</option>
         </select>
         <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', marginLeft: 'auto' }}>{filtered.length} users</span>
       </div>
@@ -393,7 +396,11 @@ function ProvidersTab({ providers, onStatusChange }) {
         const isExp = expanded === (p._id || i);
         const usedPct = p.capacityGB > 0 ? (p.usedGB / p.capacityGB) * 100 : 0;
         const barColor = usedPct > 80 ? '#ff375f' : usedPct > 60 ? '#ff9f0a' : '#30d158';
-        const statusKey = (p.isActive === false) ? 'suspended' : 'active';
+        const userStatus = p.providerId?.status || 'active';
+        let statusKey = 'active';
+        if (userStatus !== 'active') statusKey = userStatus;
+        else if (p.isPaused) statusKey = 'paused';
+        else if (!p.isActive) statusKey = 'offline';
         return (
           <React.Fragment key={p._id || i}>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.2fr 1fr 1fr 1fr 100px', gap: 8, padding: '14px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', cursor: 'pointer' }}
@@ -414,13 +421,36 @@ function ProvidersTab({ providers, onStatusChange }) {
               <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#2997ff' }}>{p.uptimePct ?? 0}%</div>
               <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ff9f0a' }}>{(p.totalEarnings || 0).toFixed(2)}</div>
               <Badge v={statusKey} map={STATUS_MAP} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={e => e.stopPropagation()}>
-                {statusKey === 'active'
-                  ? <button disabled={updating === p._id} onClick={e=>{e.stopPropagation();handleStatus(p._id,'suspended');}} style={{ padding:'3px 8px', background:'rgba(255,159,10,0.1)', border:'1px solid rgba(255,159,10,0.3)', borderRadius:6, color:'#ff9f0a', fontSize:'0.66rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Suspend</button>
-                  : <button disabled={updating === p._id} onClick={e=>{e.stopPropagation();handleStatus(p._id,'active');}} style={{ padding:'3px 8px', background:'rgba(48,209,88,0.1)', border:'1px solid rgba(48,209,88,0.3)', borderRadius:6, color:'#30d158', fontSize:'0.66rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Activate</button>
-                }
-                <button disabled={updating === p._id} onClick={e=>{e.stopPropagation();if(window.confirm('Ban this provider?'))handleStatus(p._id,'banned');}} style={{ padding:'3px 8px', background:'rgba(255,55,95,0.08)', border:'1px solid rgba(255,55,95,0.25)', borderRadius:6, color:'#ff375f', fontSize:'0.66rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Ban</button>
-                {isExp ? <ChevronUp size={13} color="rgba(255,255,255,0.3)" /> : <ChevronDown size={13} color="rgba(255,255,255,0.3)" />}
+              <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                <select 
+                  value={statusKey} 
+                  disabled={updating === p._id} 
+                  onChange={e => {
+                    const next = e.target.value;
+                    if (next === 'active' || next === 'suspended' || next === 'banned') {
+                      handleStatus(p._id, next);
+                    }
+                  }}
+                  style={{ 
+                    background: 'rgba(255,255,255,0.06)', 
+                    border: '1px solid rgba(255,255,255,0.1)', 
+                    borderRadius: 7, 
+                    color: '#fff', 
+                    fontSize: '0.68rem', 
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    width: '100%',
+                    appearance: 'none',
+                    fontFamily: 'inherit'
+                  }}>
+                  <option value="active" style={{ background: '#1e293b', color: '#fff' }}>Activate</option>
+                  <option value="suspended" style={{ background: '#1e293b', color: '#fff' }}>Suspend</option>
+                  <option value="banned" style={{ background: '#1e293b', color: '#fff' }}>Ban</option>
+                </select>
+                <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'rgba(255,255,255,0.3)' }}>
+                  <ChevronDown size={10} />
+                </div>
               </div>
             </div>
             <AnimatePresence>
@@ -502,8 +532,8 @@ function ProviderMonitorTab() {
       {error && <div style={{ padding: '12px 16px', background: 'rgba(255,55,95,0.07)', border: '1px solid rgba(255,55,95,0.25)', borderRadius: 10, color: '#ff375f', fontSize: '0.84rem', marginBottom: 12 }}>{error}</div>}
 
       <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 1.4fr 1fr 1fr 1fr', gap: 8, alignItems: 'center' }}>
-          {['', 'Provider', 'Region', 'Storage', 'Latency', 'Uptime', 'Status'].map((h,i) => (
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 1.2fr 1.4fr 1fr 1fr 1fr', gap: 8, alignItems: 'center' }}>
+          {['', 'Provider', 'Region', 'IP Address', 'Storage', 'Latency', 'Uptime', 'Status'].map((h,i) => (
             <div key={i} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)' }}>{h}</div>
           ))}
         </div>
@@ -520,7 +550,7 @@ function ProviderMonitorTab() {
           const barC = usedPct > 80 ? '#ff375f' : usedPct > 60 ? '#ff9f0a' : '#30d158';
           return (
             <div key={p._id || i}
-              style={{ display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 1.4fr 1fr 1fr 1fr', gap: 8, padding: '13px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}
+              style={{ display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 1.2fr 1.4fr 1fr 1fr 1fr', gap: 8, padding: '13px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.014)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               {/* Online dot */}
@@ -532,6 +562,7 @@ function ProviderMonitorTab() {
                 <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{p.agentUrl}</div>
               </div>
               <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>{p.region || 'local'}</div>
+              <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', wordBreak: 'break-all' }}>{p.hardware?.ip || '—'}</div>
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>{fmtGB(p.usedGB||0)} / {fmtGB(p.capacityGB||0)}</div>
                 <div style={{ height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 3 }}>
@@ -709,7 +740,20 @@ function TransactionsTab({ transactions }) {
               {t.providerWallet ? short(t.providerWallet) : (t.buyerId ? String(t.buyerId).slice(-8) : '—')}
             </div>
             <div style={{ fontSize: '0.9rem', fontWeight: 800, color: typeColor }}>{(t.amountSCT || 0).toFixed(2)} SCT</div>
-            <div>{t.txHash ? <a href={`https://sepolia.etherscan.io/tx/${t.txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: '#2997ff', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>{short(t.txHash, 10)} <ExternalLink size={11} /></a> : <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.2)' }}>Pending</span>}</div>
+            <div>
+              {t.txHash ? (
+                <a href={`https://sepolia.etherscan.io/tx/${t.txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: '#2997ff', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+                  {short(t.txHash, 10)} <ExternalLink size={11} />
+                </a>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: '0.72rem', color: t.type === 'reward' ? '#ff9f0a' : 'rgba(255,255,255,0.2)' }}>
+                    {t.type === 'reward' ? (t.providerWallet ? 'Pending Mint' : 'No Wallet') : 'Off-chain'}
+                  </span>
+                  {t.type === 'reward' && t.providerWallet && <RefreshCw size={10} color="#ff9f0a" style={{ animation: 'spin 2s linear infinite' }} />}
+                </div>
+              )}
+            </div>
             <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)' }}>{t.createdAt ? fmtDate(t.createdAt) : '—'}</div>
           </div>
         );
@@ -804,47 +848,240 @@ function RiskPostureTab({ risk }) {
   );
 }
 
+/* ── ProviderIntegrityTab ─────────────────────────────────────────────────── */
+function ProviderIntegrityTab({ onToast }) {
+  const [providers, setProviders]   = useState([]);
+  const [loading,   setLoading]     = useState(true);
+  const [suspended, setSuspended]   = useState([]);
+  const [clearing,  setClearing]    = useState('');
+  const [expanded,  setExpanded]    = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [pRes, sRes] = await Promise.all([
+        api.get('/admin/providers'),
+        api.get('/providers/admin/suspended'),
+      ]);
+      setProviders(pRes.data || []);
+      setSuspended(sRes.data || []);
+    } catch { /* non-critical */ }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const clearSuspension = async (listingId) => {
+    setClearing(listingId);
+    try {
+      await api.post(`/providers/admin/clear-suspension/${listingId}`);
+      onToast('Suspension cleared successfully');
+      load();
+    } catch (e) { onToast(e.response?.data?.message || 'Failed', true); }
+    setClearing('');
+  };
+
+  const repColor = s => s >= 80 ? '#30d158' : s >= 50 ? '#ff9f0a' : '#ff375f';
+
+  if (loading) return (
+    <div style={{ padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
+      <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} />
+      <div style={{ marginTop: 12, fontSize: '0.85rem' }}>Loading integrity data…</div>
+    </div>
+  );
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* Summary stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12 }}>
+        {[
+          { label: 'Total Providers', value: providers.length, color: '#2997ff' },
+          { label: 'Suspended', value: suspended.length, color: '#ff375f' },
+          { label: 'Avg Reputation', value: providers.length ? Math.round(providers.reduce((a,p)=>a+(p.reputationScore||100),0)/providers.length) + '%' : '—', color: '#30d158' },
+          { label: 'With Violations', value: providers.filter(p=>(p.totalViolations||0)>0).length, color: '#ff9f0a' },
+          { label: 'Healthy Nodes', value: providers.filter(p=>p.integrityHealthy!==false).length, color: '#30d158' },
+        ].map((s,i) => (
+          <div key={i} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, padding:'16px 18px' }}>
+            <div style={{ fontSize:'0.62rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', color:'rgba(255,255,255,0.3)', marginBottom:8 }}>{s.label}</div>
+            <div style={{ fontSize:'1.4rem', fontWeight:900, color:s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Suspended providers banner */}
+      {suspended.length > 0 && (
+        <div style={{ background:'rgba(255,55,95,0.06)', border:'1px solid rgba(255,55,95,0.2)', borderRadius:14, padding:'16px 20px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, color:'#ff375f', fontWeight:800, fontSize:'0.85rem' }}>
+            <ShieldAlert size={16}/> {suspended.length} Provider{suspended.length>1?'s':''} Suspended — Requires Review
+          </div>
+          {suspended.map(p => (
+            <div key={p._id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid rgba(255,255,255,0.04)', flexWrap:'wrap', gap:8 }}>
+              <div>
+                <div style={{ fontSize:'0.84rem', fontWeight:700, color:'#fff' }}>{p.providerId?.name || 'Unknown'} <span style={{ color:'rgba(255,255,255,0.4)', fontWeight:400 }}>({p.providerId?.email})</span></div>
+                <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.4)', marginTop:2 }}>{p.suspensionReason || 'No reason recorded'}</div>
+              </div>
+              <button onClick={() => clearSuspension(p._id)} disabled={clearing===p._id}
+                style={{ padding:'7px 16px', background:'rgba(48,209,88,0.1)', border:'1px solid rgba(48,209,88,0.3)', borderRadius:8, color:'#30d158', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                {clearing===p._id ? 'Clearing…' : 'Clear Suspension'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* All providers integrity table */}
+      <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:18, overflow:'hidden' }}>
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr 80px', gap:8 }}>
+          {['Provider','Reputation','Penalties','Violations','Last Check','Status'].map((h,i)=>(
+            <div key={i} style={{ fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'rgba(255,255,255,0.22)' }}>{h}</div>
+          ))}
+        </div>
+        {providers.length === 0 && <div style={{ padding:24, color:'rgba(255,255,255,0.3)', fontSize:'0.85rem' }}>No providers registered</div>}
+        {providers.map((p,i) => {
+          const isExp = expanded === p._id;
+          return (
+            <React.Fragment key={p._id||i}>
+              <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr 80px', gap:8, padding:'12px 20px', borderBottom:'1px solid rgba(255,255,255,0.04)', alignItems:'center', cursor:'pointer' }}
+                onClick={()=>setExpanded(isExp?null:p._id)}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.015)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <div>
+                  <div style={{ fontSize:'0.84rem', fontWeight:700, color:'#fff' }}>{p.providerId?.name||'Unknown'}</div>
+                  <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.3)' }}>{p.providerId?.email||'—'}</div>
+                </div>
+                <div style={{ fontWeight:800, fontSize:'0.88rem', color:repColor(p.reputationScore||100) }}>{Math.round(p.reputationScore||100)}/100</div>
+                <div style={{ fontWeight:700, fontSize:'0.88rem', color:(p.penaltyPoints||0)===0?'#30d158':(p.penaltyPoints||0)<25?'#ff9f0a':'#ff375f' }}>{p.penaltyPoints||0} pts</div>
+                <div style={{ fontSize:'0.88rem', color:(p.totalViolations||0)===0?'rgba(255,255,255,0.4)':'#ff9f0a' }}>{p.totalViolations||0}</div>
+                <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.35)' }}>{p.lastIntegrityCheck?new Date(p.lastIntegrityCheck).toLocaleTimeString():'Never'}</div>
+                <div>
+                  {p.isSuspended ? <span style={{ fontSize:'0.68rem', fontWeight:700, color:'#ff375f', background:'rgba(255,55,95,0.1)', padding:'3px 8px', borderRadius:8 }}>SUSPENDED</span>
+                    : p.integrityHealthy===false ? <span style={{ fontSize:'0.68rem', fontWeight:700, color:'#ff9f0a', background:'rgba(255,159,10,0.1)', padding:'3px 8px', borderRadius:8 }}>ISSUES</span>
+                    : <span style={{ fontSize:'0.68rem', fontWeight:700, color:'#30d158', background:'rgba(48,209,88,0.1)', padding:'3px 8px', borderRadius:8 }}>HEALTHY</span>}
+                </div>
+              </div>
+              <AnimatePresence>
+                {isExp && (
+                  <motion.div key="exp" initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} style={{overflow:'hidden'}}>
+                    <div style={{ background:'rgba(0,0,0,0.15)', margin:'0 20px 12px', borderRadius:10, padding:'14px 16px' }}>
+                      <div style={{ fontSize:'0.72rem', fontWeight:700, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>Recent Violations</div>
+                      {(p.integrityViolations||[]).length===0
+                        ? <div style={{ fontSize:'0.8rem', color:'#30d158', display:'flex', alignItems:'center', gap:6 }}><CheckCircle size={13}/> No violations recorded</div>
+                        : (p.integrityViolations||[]).slice(-5).reverse().map((v,j)=>(
+                          <div key={j} style={{ fontSize:'0.78rem', color:'rgba(255,255,255,0.5)', marginBottom:5, display:'flex', gap:8 }}>
+                            <AlertCircle size={12} color="#ff375f" style={{flexShrink:0,marginTop:2}}/>
+                            <span><strong style={{color:'rgba(255,255,255,0.7)'}}>{v.type}</strong> — {v.detail} <span style={{color:'rgba(255,255,255,0.25)'}}>{v.detectedAt?new Date(v.detectedAt).toLocaleString():''}</span></span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
 /* ── AbuseReportsTab ──────────────────────────────────────────────────────── */
 function AbuseReportsTab({ reports, onUpdate }) {
   const [updating, setUpdating] = useState('');
+  const [expanded, setExpanded] = useState(null);
   const setStatus = async (id, status) => {
     setUpdating(id);
     try { await onUpdate(id, status); } finally { setUpdating(''); }
   };
+
+  const statusColor = s => s==='resolved'?'#30d158':s==='rejected'?'#ff375f':'#ff9f0a';
+
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, overflow: 'hidden' }}>
-      <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '90px 1fr 1fr 1fr 120px 140px', gap: 8 }}>
-        {['Type', 'Reason', 'Reporter', 'Evidence', 'Status', 'Action'].map((h, i) => (
-          <div key={i} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)' }}>{h}</div>
-        ))}
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      {/* Summary row */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
+        {['open','reviewing','resolved','rejected'].map(s=>{
+          const count = (reports || []).filter(r=>r.status===s).length;
+          return (
+            <div key={s} style={{ background:'rgba(255,255,255,0.03)', border:`1px solid rgba(255,255,255,0.08)`, borderRadius:12, padding:'14px 16px' }}>
+              <div style={{ fontSize:'0.62rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', color:'rgba(255,255,255,0.3)', marginBottom:6 }}>{s}</div>
+              <div style={{ fontSize:'1.4rem', fontWeight:900, color:statusColor(s) }}>{count}</div>
+            </div>
+          );
+        })}
       </div>
-      {reports.map(r => (
-        <div key={r._id} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr 1fr 120px 140px', gap: 8, padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
-          <div style={{ color: '#2997ff', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase' }}>{r.targetType}</div>
-          <div style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.reason}</div>
-          <div style={{ color: 'rgba(255,255,255,0.48)', fontSize: '0.78rem' }}>{r.reporterUserId?.name || 'Unknown'}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-            {r.evidenceUrl && (
-              <a href={r.evidenceUrl} target="_blank" rel="noreferrer" style={{ color: '#64d2ff', fontSize: '0.73rem', textDecoration: 'none' }}>
-                Open URL
-              </a>
-            )}
-            {r.evidenceImageDataUrl && (
-              <a href={r.evidenceImageDataUrl} target="_blank" rel="noreferrer" style={{ color: '#ff9f0a', fontSize: '0.73rem', textDecoration: 'none' }}>
-                Screenshot
-              </a>
-            )}
-            {!r.evidenceUrl && !r.evidenceImageDataUrl && <span style={{ color: 'rgba(255,255,255,0.28)', fontSize: '0.73rem' }}>None</span>}
-          </div>
-          <div style={{ color: r.status === 'resolved' ? '#30d158' : r.status === 'rejected' ? '#ff375f' : '#ff9f0a', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase' }}>{r.status}</div>
-          <select value={r.status} disabled={updating === r._id} onChange={e => setStatus(r._id, e.target.value)}
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'rgba(255,255,255,0.7)', fontSize: '0.74rem', padding: '5px 8px' }}>
-            {['open', 'reviewing', 'resolved', 'rejected'].map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+
+      {/* Report list */}
+      <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:18, overflow:'hidden' }}>
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'grid', gridTemplateColumns:'100px 1.5fr 1fr 100px 130px', gap:8 }}>
+          {['Type','Reason / Reporter','Date','Status','Action'].map((h,i)=>(
+            <div key={i} style={{ fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'rgba(255,255,255,0.22)' }}>{h}</div>
+          ))}
         </div>
-      ))}
-      {reports.length === 0 && <div style={{ padding: 24, color: 'rgba(255,255,255,0.3)' }}>No abuse reports</div>}
+        {(!reports || reports.length === 0) && (
+          <div style={{ padding:'40px 24px', textAlign:'center', color:'rgba(255,255,255,0.25)', fontSize:'0.85rem' }}>
+            <Flag size={28} style={{ marginBottom:12, opacity:0.3, display:'block', margin:'0 auto 12px' }}/> No abuse reports submitted yet
+          </div>
+        )}
+        {(reports || []).map((r,i) => {
+          const isExp = expanded===r._id;
+          return (
+            <React.Fragment key={r._id||i}>
+              <div style={{ display:'grid', gridTemplateColumns:'100px 1.5fr 1fr 100px 130px', gap:8, padding:'12px 24px', borderBottom:'1px solid rgba(255,255,255,0.04)', alignItems:'center', cursor:'pointer' }}
+                onClick={()=>setExpanded(isExp?null:r._id)}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.015)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <div>
+                  <span style={{ fontSize:'0.72rem', fontWeight:700, color:'#2997ff', textTransform:'uppercase', background:'rgba(41,151,255,0.1)', padding:'2px 8px', borderRadius:6 }}>{r.targetType||'—'}</span>
+                </div>
+                <div>
+                  <div style={{ fontSize:'0.82rem', color:'#fff', fontWeight:600, marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:280 }}>{r.reason||'—'}</div>
+                  <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.35)' }}>by {r.reporterUserId?.name||r.reporterUserId?.email||'Unknown user'}</div>
+                </div>
+                <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.35)' }}>{r.createdAt?new Date(r.createdAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}):'—'}</div>
+                <div style={{ fontSize:'0.74rem', fontWeight:700, color:statusColor(r.status), textTransform:'uppercase' }}>{r.status}</div>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <select value={r.status} disabled={updating===r._id} onChange={e=>{ e.stopPropagation(); setStatus(r._id,e.target.value); }} onClick={e=>e.stopPropagation()}
+                    style={{ flex:1, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, color:'#fff', fontSize:'0.72rem', padding:'5px 8px', fontFamily:'inherit', outline:'none', cursor:'pointer', appearance:'auto' }}>
+                    {['open','reviewing','resolved','rejected'].map(s=><option key={s} value={s} style={{background:'#1e293b',color:'#fff'}}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                  </select>
+                  <div style={{ color:'rgba(255,255,255,0.25)' }}>{isExp?<ChevronUp size={14}/>:<ChevronDown size={14}/>}</div>
+                </div>
+              </div>
+              <AnimatePresence>
+                {isExp && (
+                  <motion.div key="detail" initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} style={{overflow:'hidden',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                    <div style={{ background:'rgba(0,0,0,0.15)', margin:'0 20px 12px', borderRadius:10, padding:'16px' }}>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:12 }}>
+                        <div>
+                          <div style={{ fontSize:'0.62rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', color:'rgba(255,255,255,0.25)', marginBottom:5 }}>Target ID</div>
+                          <div style={{ fontSize:'0.8rem', color:'#fff', wordBreak:'break-all' }}>{r.targetId||'—'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize:'0.62rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', color:'rgba(255,255,255,0.25)', marginBottom:5 }}>Reporter</div>
+                          <div style={{ fontSize:'0.8rem', color:'#fff' }}>{r.reporterUserId?.name||'—'} <span style={{color:'rgba(255,255,255,0.4)',fontSize:'0.72rem'}}>({r.reporterUserId?.email||'—'})</span></div>
+                        </div>
+                      </div>
+                      {r.description && (
+                        <div style={{ marginBottom:12 }}>
+                          <div style={{ fontSize:'0.62rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', color:'rgba(255,255,255,0.25)', marginBottom:5 }}>Description</div>
+                          <div style={{ fontSize:'0.82rem', color:'rgba(255,255,255,0.65)', lineHeight:1.55 }}>{r.description}</div>
+                        </div>
+                      )}
+                      {(r.evidenceUrl||r.evidenceImageDataUrl) && (
+                        <div style={{ display:'flex', gap:10 }}>
+                          {r.evidenceUrl && <a href={r.evidenceUrl} target="_blank" rel="noreferrer" style={{ fontSize:'0.78rem', color:'#64d2ff', display:'flex', alignItems:'center', gap:4 }}><ExternalLink size={12}/> Evidence URL</a>}
+                          {r.evidenceImageDataUrl && <a href={r.evidenceImageDataUrl} target="_blank" rel="noreferrer" style={{ fontSize:'0.78rem', color:'#ff9f0a', display:'flex', alignItems:'center', gap:4 }}><Eye size={12}/> Screenshot</a>}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </React.Fragment>
+          );
+        })}
+      </div>
     </motion.div>
   );
 }
@@ -996,10 +1233,14 @@ export default function AdminDashboard() {
   /* ── actions ────────────────────────────────────────────────────────────── */
   const handleStatusChange = async (providerId, status) => {
     try {
-      await api.put(`/admin/providers/${providerId}/status`, { status });
-      setProviders(prev => prev.map(p => p._id === providerId ? { ...p, isActive: status === 'active' } : p));
+      const p = providers.find(x => x._id === providerId);
+      if (!p || !p.providerId?._id) throw new Error("No linked user account found");
+      
+      const { data } = await api.patch(`/admin/users/${p.providerId._id}`, { status });
+      setUsers(prev => prev.map(u => u._id === p.providerId._id ? data.user : u));
+      setProviders(prev => prev.map(x => x._id === providerId ? { ...x, providerId: { ...x.providerId, status } } : x));
       showToast(`Provider ${status} successfully`);
-    } catch (e) { showToast(e.response?.data?.message || 'Status update failed', true); }
+    } catch (e) { showToast(e.response?.data?.message || e.message || 'Status update failed', true); }
   };
 
   const handleUpdateUser = async (userId, updates) => {
@@ -1060,22 +1301,35 @@ export default function AdminDashboard() {
   /* ── tab content switch ───────────────────────────────────────────────── */
   const tabContent = () => {
     if (loading) return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, paddingTop: 8 }}>
-        {[0, 1, 2].map(i => <div key={i} style={{ height: 100, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14 }} />)}
-      </div>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <style>{`@keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }`}</style>
+        {[120, 80, 200, 80, 160].map((h, i) => (
+          <div key={i} style={{
+            height: h, borderRadius: 14,
+            background: 'linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%)',
+            backgroundSize: '800px 100%',
+            animation: 'shimmer 1.6s ease-in-out infinite',
+          }} />
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, padding: 24, color: 'rgba(255,255,255,0.2)', fontSize: '0.82rem' }}>
+          <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Loading dashboard data…
+        </div>
+      </motion.div>
     );
     switch (tab) {
-      case 0: return <OverviewTab onRunCycle={handleRunCycle} cycleRunning={cycleRunning} cycleDone={cycleDone} onRunReplication={handleRunReplication} replicationRunning={replicationRunning} files={files} stats={stats} />;
-      case 1: return <UsersTab users={users} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />;
-      case 2: return <ProvidersTab providers={providers} onStatusChange={handleStatusChange} />;
-      case 3: return <ProviderMonitorTab />;
-      case 4: return <FilesTab files={files} />;
-      case 5: return <MarketplaceTab listings={marketplaceListings} onRemove={handleRemoveListing} />;
-      case 6: return <TransactionsTab transactions={txns} />;
-      case 7: return <RewardCyclesTab cycles={cycles} />;
-      case 8: return <RiskPostureTab risk={risk} />;
-      case 9: return <AbuseReportsTab reports={abuseReports} onUpdate={handleAbuseUpdate} />;
-      case 10: return <SettingsTab onToast={showToast} />;
+      case 0:  return <OverviewTab onRunCycle={handleRunCycle} cycleRunning={cycleRunning} cycleDone={cycleDone} onRunReplication={handleRunReplication} replicationRunning={replicationRunning} files={files} stats={stats} />;
+      case 1:  return <UsersTab users={users} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} />;
+      case 2:  return <ProvidersTab providers={providers} onStatusChange={handleStatusChange} />;
+      case 3:  return <ProviderMonitorTab />;
+      case 4:  return <FilesTab files={files} />;
+      case 5:  return <MarketplaceTab listings={marketplaceListings} onRemove={handleRemoveListing} />;
+      case 6:  return <TransactionsTab transactions={txns} />;
+      case 7:  return <RewardCyclesTab cycles={cycles} />;
+      case 8:  return <RiskPostureTab risk={risk} />;
+      case 9:  return <ProviderIntegrityTab onToast={showToast} />;
+      case 10: return <AbuseReportsTab reports={abuseReports} onUpdate={handleAbuseUpdate} />;
+      case 11: return <SettingsTab onToast={showToast} />;
       default: return null;
     }
   };
@@ -1128,12 +1382,12 @@ export default function AdminDashboard() {
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 3, marginBottom: 18, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 4, flexWrap: 'wrap' }}>
-        {TABS.map((t, i) => (
+      {TABS.map((t, i) => (
           <button key={i} onClick={() => setTab(i)}
-            style={{ padding: '8px 14px', background: tab === i ? 'rgba(255,255,255,0.08)' : 'transparent', border: tab === i ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent', borderRadius: 9, color: tab === i ? '#fff' : 'rgba(255,255,255,0.4)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: tab === i ? 700 : 500, transition: 'all 0.15s' }}>
+            style={{ padding: '8px 14px', background: tab === i ? 'rgba(255,255,255,0.08)' : 'transparent', border: tab === i ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent', borderRadius: 9, color: tab === i ? '#fff' : 'rgba(255,255,255,0.4)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: tab === i ? 700 : 500, transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 4 }}>
             {t}
             {i === 1 && users.length > 0 && <span style={{ marginLeft: 5, background: 'rgba(41,151,255,0.2)', color: '#2997ff', fontSize: '0.65rem', borderRadius: 10, padding: '1px 6px' }}>{users.length}</span>}
-            {i === 9 && abuseReports.filter(r => r.status === 'open').length > 0 && <span style={{ marginLeft: 5, background: 'rgba(255,55,95,0.2)', color: '#ff375f', fontSize: '0.65rem', borderRadius: 10, padding: '1px 6px' }}>{abuseReports.filter(r => r.status === 'open').length}</span>}
+            {i === 10 && abuseReports.filter(r => r.status === 'open').length > 0 && <span style={{ marginLeft: 5, background: 'rgba(255,55,95,0.2)', color: '#ff375f', fontSize: '0.65rem', borderRadius: 10, padding: '1px 6px' }}>{abuseReports.filter(r => r.status === 'open').length}</span>}
           </button>
         ))}
       </div>

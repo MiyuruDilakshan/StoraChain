@@ -54,4 +54,51 @@ router.get('/price-estimate', authMiddleware, async (req, res) => {
   }
 });
 
+// @route POST /api/ai/analyse-integrity
+// @desc  Analyse a provider's integrity report via AI risk scoring
+// @access Private
+router.post('/analyse-integrity', authMiddleware, async (req, res) => {
+  try {
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/analyse-integrity`,
+      req.body,
+      { timeout: 6000 }
+    );
+    res.json(response.data);
+  } catch (err) {
+    if (err.code === 'ECONNREFUSED') {
+      return res.status(503).json({ message: 'AI service is offline', target: AI_SERVICE_URL });
+    }
+    res.status(500).json({ message: 'AI service error', error: err.message });
+  }
+});
+
+// @route POST /api/ai/integrity-batch
+// @desc  Bulk analyse all providers' integrity (admin use)
+// @access Private (admin)
+router.post('/integrity-batch', authMiddleware, async (req, res) => {
+  try {
+    const StorageListing = require('../models/StorageListing');
+    const listings = await StorageListing.find({ isActive: true });
+    const results = await Promise.all(listings.map(async (l) => {
+      try {
+        const { data } = await axios.post(`${AI_SERVICE_URL}/analyse-integrity`, {
+          providerId:      l.providerId,
+          reputationScore: l.reputationScore,
+          penaltyPoints:   l.penaltyPoints,
+          totalViolations: l.totalViolations,
+          integrityHealthy: l.integrityHealthy,
+          isSuspended:     l.isSuspended,
+          consecutiveMisses: l.consecutiveMisses,
+          recentViolations: l.integrityViolations?.slice(-5) || [],
+        }, { timeout: 5000 });
+        return data;
+      } catch { return { providerId: l.providerId, riskLevel: 'unknown', riskScore: 0 }; }
+    }));
+    res.json({ results });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

@@ -1,10 +1,15 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const path = require("path");
+const dns = require("dns");
 const cors = require("cors");
+
+// Fix for transient DNS ENOTFOUND issues in restricted environments
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 connectDB();
 
@@ -50,6 +55,10 @@ app.use("/api/abuse",       require("./routes/abuseRoutes"));
 require("./jobs/replicationMonitor");
 // Reward distribution: runs at midnight UTC, mints SCT for active storage providers.
 require("./jobs/rewardDistributionJob");
+// Offline penalty detector: runs every 60s to penalize unresponsive nodes.
+const StorageListing = require("./models/StorageListing");
+const { applyOfflinePenalties } = require("./services/penaltyService");
+setInterval(() => applyOfflinePenalties(StorageListing), 60 * 1000);
 
 const PORT = process.env.PORT || 5000;
 

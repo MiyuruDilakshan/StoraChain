@@ -3,6 +3,7 @@
 require('dotenv').config();
 
 const StorageManager                  = require('./src/storage');
+const IntegrityMonitor                = require('./src/integrity');
 const createAgentServer               = require('./src/server');
 const { registerWithBackend, sendHeartbeat, deactivateWithBackend } = require('./src/registry');
 
@@ -20,7 +21,7 @@ function getFlag(flag) {
 
 if (getFlag('--help') || getFlag('-h')) {
   console.log(`
-StoraChain Provider Agent v1.0.0
+StoraChain Provider Agent v1.1.0
 
 Usage:
   node agent.js [options]
@@ -28,30 +29,20 @@ Usage:
 Options:
   --port    <number>   Port for the agent HTTP server         (default: 3001)
   --space   <number>   Storage capacity to offer in GB        (default: 10)
-  --wallet  <address>  Your Ethereum wallet address           (required)
+  --wallet  <address>  Your Ethereum wallet address           (optional)
   --price   <number>   Price per GB per day in SCT tokens     (default: 1)
   --region  <string>   Geographic region label e.g. EU, US   (default: local)
   --dir     <path>     Directory to store chunks              (default: ./storachain-storage)
   --backend <url>      StoraChain backend URL                 (default: http://localhost:5000)
-  --uninstall          Delete local chunks, release reserved space, and deactivate provider
+  --uninstall          Delete local chunks and deactivate provider
   --help               Show this help message
-
-Environment variables (.env):
-  WALLET_ADDRESS      Your Ethereum wallet address
-  AGENT_JWT           JWT token from your StoraChain login (for auto-register)
-  BACKEND_URL         StoraChain backend URL
-  BACKEND_AGENT_KEY   Shared secret key for backend→agent authentication
-  PRICE_PER_GB        Default price per GB in SCT
-
-Example:
-  node agent.js --space 20 --port 3001 --wallet 0xYourAddress --region EU
   `);
   process.exit(0);
 }
 
 // ── Configuration ──────────────────────────────────────────────────
-const PORT         = parseInt(getArg('--port',    '3001'));
-const SPACE_GB     = parseFloat(getArg('--space', '10'));
+const PORT         = parseInt(getArg('--port',    '0'));
+const SPACE_GB     = parseFloat(getArg('--space', process.env.SPACE_GB || '10'));
 const WALLET       = getArg('--wallet',   null) || process.env.WALLET_ADDRESS || '';
 const PRICE_PER_GB = parseFloat(getArg('--price', process.env.PRICE_PER_GB || '1'));
 const REGION       = getArg('--region',   process.env.REGION       || 'local');
@@ -61,51 +52,67 @@ const AGENT_KEY    = process.env.BACKEND_AGENT_KEY || 'agent-secret-key';
 const STORAGE_DIR  = getArg('--dir', process.env.STORAGE_DIR || './storachain-storage');
 const SHOULD_UNINSTALL = getFlag('--uninstall');
 
-// ── Validate required args ────────────────────────────────────────
-if (!WALLET && !SHOULD_UNINSTALL) {
-  console.error('\n[Agent] ERROR: Wallet address is required.');
-  console.error('[Agent] Usage: node agent.js --wallet 0xYourAddress --space 20\n');
+if (isNaN(PORT) || PORT < 0 || PORT > 65535) {
+  console.error(`[Agent] ERROR: Invalid port ${PORT}. Must be between 0-65535.`);
   process.exit(1);
 }
 
-if (isNaN(PORT) || PORT < 1024 || PORT > 65535) {
-  console.error(`[Agent] ERROR: Invalid port ${PORT}. Must be between 1024-65535.`);
+if (SPACE_GB < 0) {
+  console.error('[Agent] ERROR: --space cannot be negative');
   process.exit(1);
 }
 
-if (SPACE_GB <= 0) {
-  console.error('[Agent] ERROR: --space must be greater than 0');
-  process.exit(1);
+// ── Dynamic port finder ───────────────────────────────────────────
+const net = require('net');
+function findAvailablePort(startPort) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.listen(startPort, () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+    server.on('error', () => resolve(findAvailablePort(startPort + 1)));
+  });
 }
 
 // ── Banner ────────────────────────────────────────────────────────
 console.log('');
 console.log('╔══════════════════════════════════════════╗');
 console.log('║       StoraChain Provider Agent          ║');
-console.log('║              v1.0.0                      ║');
+console.log('║              v1.1.0                      ║');
 console.log('╚══════════════════════════════════════════╝');
-console.log(`  Port     : ${PORT}`);
+console.log(`  Port     : ${PORT === 0 ? 'Dynamic (starting at 3001)' : PORT}`);
 console.log(`  Space    : ${SPACE_GB} GB`);
 console.log(`  Price    : ${PRICE_PER_GB} SCT/GB`);
-console.log(`  Wallet   : ${WALLET}`);
+console.log(`  Wallet   : ${WALLET || '(not set)'}`);
 console.log(`  Region   : ${REGION}`);
 console.log(`  Backend  : ${BACKEND_URL}`);
 console.log(`  Storage  : ${STORAGE_DIR}`);
-console.log(`  Auth key : ${AGENT_JWT ? '✓ JWT present' : '✗ No JWT (registration skipped)'}`);
+console.log(`  Auth     : ${AGENT_JWT ? '✓ JWT present — will auto-register' : '✗ No JWT (registration skipped)'}`);
 console.log('');
 
-// ── Init storage ──────────────────────────────────────────────────
-const storage = new StorageManager(STORAGE_DIR, SPACE_GB);
+// ── Init storage + integrity monitor ──────────────────────────────
+const storage   = new StorageManager(STORAGE_DIR, SPACE_GB);
+const integrity = new IntegrityMonitor(storage);
+
+// Wire integrity monitor into StorageManager so checksum is recorded on every chunk write
+StorageManager.setIntegrityMonitor(integrity);
+
 storage.init();
 
+// Load persisted chunk checksums (so reboots don't lose them)
+integrity.loadCacheFromDisk();
+
+// ── Uninstall mode ────────────────────────────────────────────────
 async function runUninstall() {
   console.log('[Agent] Uninstall mode: deleting local chunks and releasing reserved space...');
-  storage.wipeAllChunks();
-  storage.releaseReservation();
+  try { storage.wipeAllChunks(); } catch (e) { console.warn('[Agent] wipeAllChunks:', e.message); }
+  try { storage.releaseReservation(); } catch (e) { console.warn('[Agent] releaseReservation:', e.message); }
   if (AGENT_JWT) {
+    console.log('[Agent] Deactivating listing on backend...');
     await deactivateWithBackend({ backendUrl: BACKEND_URL, jwt: AGENT_JWT });
   }
-  console.log('[Agent] Uninstall complete. Reserved space released.');
+  console.log('[Agent] ✓ Uninstall complete. Reserved space released.');
   process.exit(0);
 }
 
@@ -114,94 +121,99 @@ if (SHOULD_UNINSTALL) {
     console.error('[Agent] Uninstall failed:', err.message);
     process.exit(1);
   });
+  return; // stop here in uninstall mode
 }
 
 // ── Uptime tracking ───────────────────────────────────────────────
-const startTime = Date.now();
-let totalTicks   = 0;
-let onlineTicks  = 0;
-
+let totalTicks  = 0;
+let onlineTicks = 0;
 function uptimePct() {
   if (totalTicks === 0) return 100;
   return parseFloat(((onlineTicks / totalTicks) * 100).toFixed(1));
 }
 
-// ── Start HTTP server ─────────────────────────────────────────────
-const app = createAgentServer(storage, AGENT_KEY);
+// ── Main start ────────────────────────────────────────────────────
+async function start() {
+  // Pick port dynamically if PORT === 0
+  const finalPort = PORT === 0 ? await findAvailablePort(3001) : PORT;
+  if (PORT === 0) console.log(`[Agent] Dynamic port selected: ${finalPort}`);
 
-const httpServer = app.listen(PORT, async () => {
-  console.log(`[Agent] HTTP server listening on port ${PORT}`);
-  console.log(`[Agent] Health check: http://localhost:${PORT}/health`);
-  console.log('');
+  const server = createAgentServer(storage, AGENT_KEY);
 
-  // Register with backend if JWT is available
-  if (AGENT_JWT) {
-    const ok = await registerWithBackend({
-      backendUrl:    BACKEND_URL,
-      jwt:           AGENT_JWT,
-      walletAddress: WALLET,
-      agentPort:     PORT,
-      capacityGB:    SPACE_GB,
-      pricePerGB:    PRICE_PER_GB,
-      region:        REGION,
-      storageDir:    STORAGE_DIR,
-    });
+  server.listen(finalPort, async () => {
+    console.log(`[Agent] HTTP Server listening on port ${finalPort}`);
 
-    if (ok) {
-      console.log('[Agent] Auto-registration succeeded. Starting heartbeat (every 30s)...');
-      onlineTicks++;
-      totalTicks++;
-
-      // Periodic heartbeat
-      setInterval(() => {
-        onlineTicks++;
-        totalTicks++;
-        sendHeartbeat({
-          backendUrl:     BACKEND_URL,
-          jwt:            AGENT_JWT,
-          storageManager: storage,
-          uptimePct:      uptimePct(),
+    // ── Auto-register with backend if JWT is present ──
+    if (AGENT_JWT) {
+      console.log('[Agent] Auto-registering with backend...');
+      try {
+        const result = await registerWithBackend({
+          backendUrl:    BACKEND_URL,
+          jwt:           AGENT_JWT,
+          agentPort:     finalPort,
+          capacityGB:    SPACE_GB,
+          region:        REGION,
+          walletAddress: WALLET,
+          storageDir:    STORAGE_DIR,
         });
-      }, 30_000);
-    } else {
-      console.log('[Agent] Registration failed. Agent still serving chunks directly.');
-    }
-  } else {
-    console.log('[Agent] AGENT_JWT not set in .env — skipping auto-registration.');
-    console.log('[Agent] To register, add AGENT_JWT=<your-jwt> to provider-agent/.env');
-    console.log('[Agent] You can get your JWT by logging in at http://localhost:5000/api/auth/login');
-  }
+        if (result) {
+          console.log('[Agent] ✓ Registered with backend successfully!');
+        } else {
+          console.warn('[Agent] ✗ Registration returned false — check backend logs.');
+        }
+      } catch (err) {
+        console.error('[Agent] ✗ Registration error:', err.message);
+      }
 
-  console.log('[Agent] Ready. Press Ctrl+C to stop.\n');
+      // ── Start periodic heartbeats every 30s with integrity check ──
+      setInterval(async () => {
+        totalTicks++;
+        try {
+          await sendHeartbeat({
+            backendUrl:       BACKEND_URL,
+            jwt:              AGENT_JWT,
+            storageManager:   storage,
+            integrityMonitor: integrity,
+            uptimePct:        uptimePct(),
+          });
+          onlineTicks++;
+        } catch (_) { /* heartbeat failure is non-critical */ }
+      }, 30000);
+
+    } else {
+      console.log('[Agent] No JWT found — running in standalone mode (no backend registration).');
+      console.log('[Agent] To register, set AGENT_JWT in .env and restart.');
+    }
+
+    console.log('[Agent] ✓ Ready. Integrity monitoring active.\n');
+  });
+}
+
+start().catch(err => {
+  console.error('[Agent] FATAL ERROR:', err.message);
+  process.exit(1);
 });
 
+// ── Graceful shutdown ────────────────────────────────────────────
 let shuttingDown = false;
-
 async function shutdown(signalName) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`\n[Agent] Received ${signalName} — shutting down gracefully...`);
-
   if (AGENT_JWT) {
-    await deactivateWithBackend({ backendUrl: BACKEND_URL, jwt: AGENT_JWT });
+    try {
+      await deactivateWithBackend({ backendUrl: BACKEND_URL, jwt: AGENT_JWT });
+      console.log('[Agent] ✓ Deactivated listing on backend.');
+    } catch (e) {
+      console.error('[Agent] Deactivation failed during shutdown:', e.message);
+    }
   }
-
-  httpServer.close(() => {
-    console.log('[Agent] Server closed. Goodbye.');
-    process.exit(0);
-  });
+  console.log('[Agent] Goodbye.');
+  process.exit(0);
 }
 
-// ── Graceful shutdown ────────────────────────────────────────────
-process.on('SIGINT', () => {
-  shutdown('SIGINT');
-});
-
-process.on('SIGTERM', () => {
-  shutdown('SIGTERM');
-});
-
+process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('uncaughtException', (err) => {
   console.error('[Agent] Uncaught exception:', err.message);
-  // Keep running — don't crash on recoverable errors
 });

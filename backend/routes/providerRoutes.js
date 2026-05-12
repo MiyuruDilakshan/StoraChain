@@ -3,6 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const StorageListing = require('../models/StorageListing');
 const { estimateSystemPricePerGB } = require('../services/pricingService');
+const { processIntegrityReport, resetProviderPenalties } = require('../services/penaltyService');
 
 // @route POST /api/providers/register
 // @desc  Provider agent calls this on startup to register itself
@@ -17,7 +18,7 @@ router.post('/register', authMiddleware, async (req, res) => {
     hardware.ip = ip;
   }
 
-  if (!agentUrl || !capacityGB) {
+  if (!agentUrl || capacityGB === undefined) {
     return res.status(400).json({ message: 'Missing required fields: agentUrl, capacityGB' });
   }
 
@@ -25,7 +26,7 @@ router.post('/register', authMiddleware, async (req, res) => {
     const existing = await StorageListing.findOne({ providerId: req.user.id });
     if (existing) {
       existing.agentUrl   = agentUrl;
-      existing.capacityGB = capacityGB;
+      if (capacityGB > 0) existing.capacityGB = capacityGB;
       existing.region     = region || existing.region;
       if (walletAddress) existing.walletAddress = walletAddress;
       if (hardware) existing.hardware = hardware;
@@ -73,7 +74,7 @@ router.get('/', authMiddleware, async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const listing = await StorageListing.findOne({ providerId: req.user.id });
-    if (!listing) return res.status(404).json({ message: 'No listing found for this provider' });
+    if (!listing) return res.json(null); // Return 200 with null to avoid 404 console spam in browser
     res.json(listing);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -81,10 +82,10 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 // @route PUT /api/providers/heartbeat
-// @desc  Agent sends periodic heartbeat to update live stats
+// @desc  Agent sends periodic heartbeat to update live stats + integrity report
 // @access Private
 router.put('/heartbeat', authMiddleware, async (req, res) => {
-  const { usedGB, latencyMs, uptimePct } = req.body;
+  const { usedGB, latencyMs, uptimePct, integrityReport } = req.body;
   try {
     const listing = await StorageListing.findOne({ providerId: req.user.id });
     if (!listing) return res.status(404).json({ message: 'Provider not found. Register first.' });
@@ -92,15 +93,40 @@ router.put('/heartbeat', authMiddleware, async (req, res) => {
     if (usedGB    !== undefined) listing.usedGB    = usedGB;
     if (latencyMs !== undefined) listing.latencyMs = latencyMs;
     if (uptimePct !== undefined) listing.uptimePct = uptimePct;
+    listing.lastHeartbeatAt   = new Date();
+    listing.consecutiveMisses = 0;
+    listing.isActive          = true;  // Mark alive again if it was marked dead
+
+    // Update disk stats from integrity report
+    if (integrityReport) {
+      if (integrityReport.diskFreeGB  !== undefined) listing.hardware.diskFreeGB  = integrityReport.diskFreeGB;
+      if (integrityReport.diskTotalGB !== undefined) listing.hardware.diskTotalGB = integrityReport.diskTotalGB;
+    }
+
     listing.systemPricePerGB = estimateSystemPricePerGB(listing);
+
+    // ── Process integrity report for penalties ──────────────────────
+    await processIntegrityReport(listing, integrityReport);
+
     await listing.save();
 
-    res.json({ message: 'Heartbeat received' });
+    res.json({ 
+      message: 'Heartbeat received',
+      suspended: listing.isSuspended,
+      penaltyPoints: listing.penaltyPoints,
+      reputationScore: listing.reputationScore,
+      config: {
+        capacityGB:   listing.capacityGB,
+        diskPath:     listing.hardware?.diskPath,
+        walletAddress: listing.walletAddress
+      }
+    });
   } catch (err) {
     console.error('[Providers] Heartbeat error:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 // @route PUT /api/providers/deactivate
 // @desc  Provider goes offline — mark listing inactive
@@ -117,7 +143,89 @@ router.put('/deactivate', authMiddleware, async (req, res) => {
   }
 });
 
-// @route PUT /api/providers/update
+// @route PUT /api/providers/toggle-pause
+// @desc  Toggle provider online/offline — also starts/stops the local PM2 agent if present
+// @access Private
+router.put('/toggle-pause', authMiddleware, async (req, res) => {
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'Provider not found. Install the agent first.' });
+
+    listing.isPaused = !listing.isPaused;
+    await listing.save();
+
+    // ── Try to start/stop the local PM2 process ──────────────────
+    // This works when the backend and provider agent are on the same machine.
+    // On VPS setups, PM2 is controlled by the agent's own SIGTERM handler.
+    const { execSync } = require('child_process');
+    if (!listing.isPaused) {
+      // Going ONLINE — start or restart the PM2 agent
+      try {
+        // Try restart first (agent already exists in PM2)
+        try {
+          execSync('pm2 restart storachain-provider --update-env', { stdio: 'ignore', timeout: 8000, windowsHide: true });
+          console.log('[Providers] PM2 restarted storachain-provider');
+        } catch {
+          // Not in PM2 — try to start from the installed directory
+          const os = require('os');
+          const agentDir = require('path').join(os.homedir(), 'storachain-agent');
+          execSync(`pm2 start ${agentDir}/agent.js --name storachain-provider`, {
+            stdio: 'ignore', timeout: 8000, cwd: agentDir, windowsHide: true
+          });
+          execSync('pm2 save', { stdio: 'ignore', windowsHide: true });
+          console.log('[Providers] PM2 started storachain-provider from', agentDir);
+        }
+      } catch (pm2Err) {
+        // PM2 not available on this machine — agent manages itself (VPS mode)
+        console.warn('[Providers] PM2 control skipped:', pm2Err.message);
+      }
+    } else {
+      // Going OFFLINE — stop the PM2 agent
+      try {
+        execSync('pm2 stop storachain-provider', { stdio: 'ignore', timeout: 8000 });
+        console.log('[Providers] PM2 stopped storachain-provider');
+      } catch (pm2Err) {
+        console.warn('[Providers] PM2 stop skipped:', pm2Err.message);
+      }
+    }
+
+    res.json({
+      message: `Provider is now ${listing.isPaused ? 'offline' : 'online'}`,
+      listing
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route POST /api/providers/uninstall
+// @desc  Trigger remote agent uninstall and delete listing
+// @access Private
+router.post('/uninstall', authMiddleware, async (req, res) => {
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.status(404).json({ message: 'Provider not found' });
+    
+    // Call agent
+    let agentRes = null;
+    if (listing.agentUrl) {
+      try {
+        agentRes = await require('axios').post(`${listing.agentUrl}/uninstall`, {}, {
+          headers: { 'x-agent-key': 'agent-secret-key' },
+          timeout: 5000
+        });
+      } catch (agentErr) {
+        console.warn('[Providers] Agent uninstall call failed:', agentErr.message);
+      }
+    }
+
+    await StorageListing.deleteOne({ providerId: req.user.id });
+    res.json({ message: 'Provider uninstalled successfully', agentData: agentRes?.data });
+  } catch (err) {
+    console.error('[Providers] Uninstall error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 // @desc  Update provider node settings (capacity, price, region)
 // @access Private
 router.put('/update', authMiddleware, async (req, res) => {
@@ -131,6 +239,24 @@ router.put('/update', authMiddleware, async (req, res) => {
     if (diskPath      !== undefined) { listing.hardware = listing.hardware || {}; listing.hardware.diskPath = diskPath; }
     listing.systemPricePerGB = estimateSystemPricePerGB(listing);
     await listing.save();
+
+    // Push config update to the agent if it's reachable
+    if (listing.agentUrl) {
+      const axios = require('axios');
+      try {
+        await axios.post(`${listing.agentUrl}/update-config`, {
+          capacityGB,
+          diskPath,
+          walletAddress
+        }, {
+          headers: { 'Authorization': `Bearer ${process.env.BACKEND_AGENT_KEY || 'agent-secret-key'}` },
+          timeout: 5000
+        });
+      } catch (e) {
+        console.warn(`[Providers] Failed to push config to agent at ${listing.agentUrl}:`, e.message);
+      }
+    }
+
     res.json(listing);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -558,7 +684,7 @@ router.get('/disk-info', authMiddleware, async (req, res) => {
     const agentUrl = listing.agentUrl || 'http://localhost:3001';
     try {
       const { default: axios } = await import('axios');
-      const { data } = await axios.get(`${agentUrl}/disk-info`, { timeout: 5000 });
+      const { data } = await axios.get(`${agentUrl}/disk-info`, { timeout: 15000 });
       return res.json(data);
     } catch (agentErr) {
       // Agent offline — return placeholder message
@@ -566,6 +692,57 @@ router.get('/disk-info', authMiddleware, async (req, res) => {
     }
   } catch (err) {
     console.error('[Providers] disk-info error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// ── GET /api/providers/integrity-report ──────────────────────────────────────
+// Provider sees their own integrity + penalty status
+router.get('/integrity-report', authMiddleware, async (req, res) => {
+  try {
+    const listing = await StorageListing.findOne({ providerId: req.user.id });
+    if (!listing) return res.json(null);
+    res.json({
+      integrityHealthy:    listing.integrityHealthy,
+      lastIntegrityCheck:  listing.lastIntegrityCheck,
+      lastHeartbeatAt:     listing.lastHeartbeatAt,
+      reputationScore:     listing.reputationScore,
+      penaltyPoints:       listing.penaltyPoints,
+      isSuspended:         listing.isSuspended,
+      suspensionReason:    listing.suspensionReason,
+      totalViolations:     listing.totalViolations,
+      recentViolations:    listing.integrityViolations?.slice(-5) || [],
+      recentPenalties:     listing.penaltyHistory?.slice(-5) || [],
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── Admin: GET /api/providers/admin/suspended ─────────────────────────────────
+router.get('/admin/suspended', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+  try {
+    const suspended = await StorageListing.find({ isSuspended: true })
+      .populate('providerId', 'name email')
+      .sort({ suspendedAt: -1 });
+    res.json(suspended);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── Admin: POST /api/providers/admin/clear-suspension/:listingId ─────────────
+router.post('/admin/clear-suspension/:listingId', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+  try {
+    const listing = await StorageListing.findById(req.params.listingId);
+    if (!listing) return res.status(404).json({ message: 'Listing not found' });
+    await resetProviderPenalties(listing);
+    await listing.save();
+    res.json({ message: 'Suspension cleared', listing });
+  } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -5,6 +5,7 @@ import {
   HardDrive, FolderOpen, ShoppingBag,
   Coins, Activity,
   TrendingUp, ArrowUpRight, Clock, Zap, CreditCard, DollarSign,
+  AlertCircle, X, Terminal,
 } from 'lucide-react';
 import api from '../../api/client';
 
@@ -96,8 +97,16 @@ export default function Dashboard({ user }) {
   const [stats, setStats]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [providerNode, setProviderNode] = useState(null);
-  const [providerCli, setProviderCli] = useState(null);
   const [onlineBusy, setOnlineBusy] = useState(false);
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  
+  // Config modal states
+  const [disks, setDisks] = useState([]);
+  const [selectedDisk, setSelectedDisk] = useState('');
+  const [configForm, setConfigForm] = useState({ capacityGB: '', walletAddress: '', diskPath: '' });
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configError, setConfigError] = useState('');
+
   const isProvider = user?.role === 'provider';
   const accent     = isProvider ? '#30d158' : '#2997ff';
 
@@ -108,55 +117,95 @@ export default function Dashboard({ user }) {
       .finally(() => setLoading(false));
 
     if (isProvider) {
-      api.get('/providers/me').then(r => setProviderNode(r.data)).catch(() => setProviderNode(null));
-      const providerId = localStorage.getItem('providerId');
-      if (providerId) {
-        api.get(`/providers/cli/${providerId}/dashboard`)
-          .then(r => setProviderCli(r.data?.provider || null))
-          .catch(() => setProviderCli(null));
-      }
+      // Silently handle 404 — provider simply has no node yet
+      api.get('/providers/me')
+        .then(r => setProviderNode(r.data))
+        .catch(e => {
+          if (e?.response?.status !== 404) console.warn('[Dashboard] Provider fetch:', e.message);
+          setProviderNode(null);
+        });
     }
   }, []);
 
   const refreshProviderState = async () => {
     try {
-      const [nodeRes] = await Promise.all([
-        api.get('/providers/me').catch(() => ({ data: null })),
-      ]);
+      const nodeRes = await api.get('/providers/me').catch(e => {
+        if (e?.response?.status !== 404) console.warn('[Dashboard] Refresh:', e.message);
+        return { data: null };
+      });
       setProviderNode(nodeRes.data);
-      const providerId = localStorage.getItem('providerId');
-      if (providerId) {
-        const cliRes = await api.get(`/providers/cli/${providerId}/dashboard`).catch(() => ({ data: null }));
-        setProviderCli(cliRes.data?.provider || null);
-      }
     } catch {
       // no-op
     }
   };
 
+  useEffect(() => {
+    if (providerNode && providerNode.capacityGB === 0 && disks.length === 0) {
+      // Fetch disks
+      api.get('/providers/disk-info').then(res => {
+        setDisks(res.data.disks || []);
+        if (res.data.disks?.length > 0) {
+          const first = res.data.disks[0];
+          setSelectedDisk(first.mountpoint);
+          const suggested = Math.floor(first.freeGB * 0.8 * 10) / 10;
+          setConfigForm({ diskPath: first.mountpoint, capacityGB: String(suggested > 1 ? suggested : 1), walletAddress: '' });
+        }
+      }).catch(e => {
+        setConfigError(e.response?.data?.message || 'Failed to fetch disk info.');
+      });
+    }
+  }, [providerNode, disks.length]);
+
+  const handleDiskSelect = (e) => {
+    const mountpoint = e.target.value;
+    const disk = disks.find(d => d.mountpoint === mountpoint);
+    setSelectedDisk(mountpoint);
+    if (disk) {
+      const suggested = Math.floor(disk.freeGB * 0.8 * 10) / 10;
+      setConfigForm(f => ({ ...f, diskPath: mountpoint, capacityGB: String(suggested > 1 ? suggested : 1) }));
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    const cap = parseFloat(configForm.capacityGB);
+    if (!cap || cap <= 0) return setConfigError('Please enter a valid storage size.');
+    
+    const selDiskInfo = disks.find(d => d.mountpoint === selectedDisk);
+    if (selDiskInfo && cap > selDiskInfo.freeGB) {
+      return setConfigError(`Not enough free space. Only ${selDiskInfo.freeGB.toFixed(1)} GB available.`);
+    }
+
+    setConfigLoading(true);
+    setConfigError('');
+    try {
+      await api.put('/providers/update', {
+        capacityGB: cap,
+        walletAddress: configForm.walletAddress.trim() || undefined,
+        diskPath: configForm.diskPath || undefined,
+      });
+      // Start the node automatically after config
+      await api.put('/providers/toggle-pause');
+      await refreshProviderState();
+    } catch (e) {
+      setConfigError('Failed to save settings.');
+    } finally {
+      setConfigLoading(false);
+    }
+  };
+
   const handleProviderToggle = async () => {
     if (!isProvider) return;
+    // If node is not set up, show an informative modal instead of doing nothing
+    if (!providerNode) {
+      setShowSetupModal(true);
+      return;
+    }
     setOnlineBusy(true);
     try {
-      const providerId = localStorage.getItem('providerId');
-      const isOnlineNow = providerCli?.status === 'online' || providerNode?.isActive;
-
-      if (providerId) {
-        if (isOnlineNow) {
-          await api.post(`/providers/cli/${providerId}/go-offline`);
-        } else {
-          await api.post(`/providers/cli/${providerId}/go-online`, {
-            hddTotalGB: providerNode?.capacityGB || stats?.capacityGB || 0,
-            walletAddress: user?.walletAddress,
-          });
-        }
-      } else {
-        const endpoint = isOnlineNow ? '/providers/deactivate' : '/providers/activate';
-        await api.post(endpoint);
-      }
+      await api.put('/providers/toggle-pause');
       await refreshProviderState();
-    } catch {
-      // keep UI stable on failures
+    } catch (e) {
+      console.warn('[Dashboard] Toggle failed:', e.message);
     } finally {
       setOnlineBusy(false);
     }
@@ -195,7 +244,7 @@ export default function Dashboard({ user }) {
   ];
 
   const cards = isProvider ? providerCards : seekerCards;
-  const providerIsOnline = providerCli?.status === 'online' || providerNode?.isActive;
+  const providerIsOnline = providerNode && !providerNode.isPaused && providerNode.isActive;
   const providerStatusLabel = !providerNode
     ? 'Setup Required'
     : providerIsOnline
@@ -205,6 +254,159 @@ export default function Dashboard({ user }) {
   return (
     <div style={{ position: 'relative', minHeight: '100vh', zIndex: 1 }}>
       <Stars />
+
+      {/* ── Setup-Required Modal ───────────────────────────────────────── */}
+      {showSetupModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', padding: 24 }}>
+          <motion.div initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.3 }}
+            style={{ background: 'linear-gradient(135deg,#0d1117,#111827)', border: '1px solid rgba(255,159,10,0.3)', borderRadius: 24, padding: '40px 36px', width: '100%', maxWidth: 480, position: 'relative' }}>
+            {/* Close */}
+            <button onClick={() => setShowSetupModal(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center' }}>
+              <X size={16} />
+            </button>
+
+            {/* Icon */}
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,159,10,0.12)', border: '1px solid rgba(255,159,10,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+              <AlertCircle size={30} color="#ff9f0a" />
+            </div>
+
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', margin: '0 0 12px', letterSpacing: '-0.03em' }}>
+              Node Not Set Up Yet
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', lineHeight: 1.7, margin: '0 0 8px' }}>
+              You haven't installed the StoraChain Provider Agent on this device yet.
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', lineHeight: 1.6, margin: '0 0 28px' }}>
+              To go online and start earning SCT tokens, you need to:
+            </p>
+
+            <ol style={{ margin: '0 0 28px', paddingLeft: 22, color: 'rgba(255,255,255,0.45)', fontSize: '0.85rem', lineHeight: 2 }}>
+              <li>Download and run <strong style={{ color: '#fff' }}>windows-setup.bat</strong> (or <strong style={{ color: '#fff' }}>linux-setup.sh</strong>) from the Setup page.</li>
+              <li>The installer will link this account to your node automatically.</li>
+              <li>Once the agent is running, come back and press the toggle.</li>
+            </ol>
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => { setShowSetupModal(false); navigate('/app/setup'); }}
+                style={{ flex: 1, padding: '13px 0', background: 'linear-gradient(135deg,rgba(255,159,10,0.25),rgba(255,159,10,0.1))', border: '1px solid rgba(255,159,10,0.5)', borderRadius: 12, color: '#ff9f0a', fontWeight: 800, fontSize: '0.92rem', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Terminal size={16} /> View Setup Guide
+              </button>
+              <button onClick={() => setShowSetupModal(false)}
+                style={{ padding: '13px 20px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Dismiss
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── Config-Required Modal (Blocking) ────────────────────────────── */}
+      {providerNode && providerNode.capacityGB === 0 && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', padding: 24 }}>
+          <motion.div initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.3 }}
+            style={{ background: 'linear-gradient(135deg,#0d1117,#111827)', border: '1px solid rgba(48,209,88,0.3)', borderRadius: 24, padding: '40px 36px', width: '100%', maxWidth: 500, position: 'relative' }}>
+            
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(48,209,88,0.12)', border: '1px solid rgba(48,209,88,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+              <HardDrive size={30} color="#30d158" />
+            </div>
+
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.03em' }}>
+              Agent Connected!
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', lineHeight: 1.6, margin: '0 0 24px' }}>
+              Your node agent is running in the background. Please select a local disk and allocate storage space to complete setup.
+            </p>
+
+            {configError && (
+              <div style={{ background: 'rgba(255,55,95,0.1)', color: '#ff375f', padding: '12px 16px', borderRadius: 10, fontSize: '0.85rem', marginBottom: 20, border: '1px solid rgba(255,55,95,0.2)' }}>
+                {configError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 28 }}>
+              <div>
+                <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Select Storage Disk</label>
+                <select value={selectedDisk} onChange={handleDiskSelect} style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#fff', fontSize: '0.9rem', outline: 'none' }}>
+                  {disks.map(d => (
+                    <option key={d.mountpoint} value={d.mountpoint}>{d.name} ({d.freeGB.toFixed(1)} GB free)</option>
+                  ))}
+                  {disks.length === 0 && <option value="">Scanning disks...</option>}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Storage to Contribute (GB)</label>
+                <input type="number" value={configForm.capacityGB} onChange={e => setConfigForm(f => ({ ...f, capacityGB: e.target.value }))} style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#fff', fontSize: '0.9rem', outline: 'none' }} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Wallet Address (Optional)</label>
+                <input type="text" placeholder="0x..." value={configForm.walletAddress} onChange={e => setConfigForm(f => ({ ...f, walletAddress: e.target.value }))} style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#fff', fontSize: '0.9rem', outline: 'none' }} />
+              </div>
+            </div>
+
+            <button onClick={handleSaveConfig} disabled={configLoading || disks.length === 0}
+              style={{ width: '100%', padding: '14px 0', background: 'linear-gradient(135deg,#30d158,#28a745)', border: 'none', borderRadius: 12, color: '#000', fontWeight: 800, fontSize: '0.95rem', cursor: (configLoading || disks.length === 0) ? 'not-allowed' : 'pointer', opacity: (configLoading || disks.length === 0) ? 0.7 : 1 }}>
+              {configLoading ? 'Saving...' : 'Save & Go Online'}
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* VPN-Style Master Toggle for Providers */}
+      {isProvider && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.6 }}
+          style={{
+            background: 'rgba(255,255,255,0.03)', border: `1px solid ${providerIsOnline ? 'rgba(48,209,88,0.2)' : 'rgba(255,55,95,0.2)'}`,
+            borderRadius: 24, padding: '32px 40px', marginBottom: 30, position: 'relative', zIndex: 2,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20,
+            overflow: 'hidden', backdropFilter: 'blur(10px)'
+          }}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: `radial-gradient(circle at 0% 0%, ${providerIsOnline ? '#30d15811' : '#ff375f11'} 0%, transparent 50%)`, pointerEvents: 'none' }} />
+          
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: providerIsOnline ? '#30d158' : '#ff375f', boxShadow: `0 0 12px ${providerIsOnline ? '#30d158' : '#ff375f'}` }} />
+              <span style={{ fontSize: '0.85rem', fontWeight: 800, color: providerIsOnline ? '#30d158' : '#ff375f', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                System {providerIsOnline ? 'Active' : 'Paused'}
+              </span>
+            </div>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', margin: '0 0 10px', letterSpacing: '-0.03em' }}>
+              {providerIsOnline ? 'Earning tokens in background' : 'Node is currently dormant'}
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.35)', margin: 0, fontSize: '0.9rem', maxWidth: 450 }}>
+              {providerIsOnline 
+                ? 'Your node is serving chunks and maintaining the decentralized storage layer.' 
+                : 'Resume your node to start earning SCT tokens and contributing to the network.'}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <motion.div 
+              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              onClick={handleProviderToggle}
+              style={{
+                width: 100, height: 100, borderRadius: '50%', cursor: onlineBusy ? 'wait' : 'pointer',
+                background: providerIsOnline ? 'rgba(48,209,88,0.1)' : 'rgba(255,55,95,0.1)',
+                border: `3px solid ${providerIsOnline ? '#30d158' : '#ff375f'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 0 40px ${providerIsOnline ? '#30d15822' : '#ff375f22'}`,
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {onlineBusy ? (
+                <Zap size={32} color={accent} style={{ animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <Zap size={32} color={providerIsOnline ? '#30d158' : '#ff375f'} />
+              )}
+            </motion.div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
+              {onlineBusy ? 'Switching...' : `Turn ${providerIsOnline ? 'Off' : 'On'}`}
+            </span>
+          </div>
+        </motion.div>
+      )}
 
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ marginBottom: 40, position: 'relative', zIndex: 2 }}>
@@ -217,7 +419,7 @@ export default function Dashboard({ user }) {
           color: accent, marginBottom: 14,
         }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent, animation: 'pulse 2s infinite' }} />
-          {isProvider ? `Provider Node — ${providerStatusLabel}` : 'Storage Seeker — Active'}
+          {isProvider ? `Provider Profile — ${providerStatusLabel}` : 'Storage Seeker — Active'}
         </div>
         <h1 style={{ fontSize: 'clamp(2rem,4.5vw,3rem)', fontWeight: 900, letterSpacing: '-0.05em', color: '#fff', margin: 0, lineHeight: 1.1 }}>
           Welcome back,{' '}
@@ -352,25 +554,17 @@ export default function Dashboard({ user }) {
           initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38, duration: 0.6 }}
           style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
         >
-          {/* Network status */}
-          <div style={{ background: 'rgba(41,151,255,0.05)', border: '1px solid rgba(41,151,255,0.15)', borderRadius: 18, padding: '20px 22px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: providerIsOnline || !isProvider ? '#30d158' : '#ff9f0a', display: 'inline-block', boxShadow: providerIsOnline || !isProvider ? '0 0 8px #30d158' : '0 0 8px #ff9f0a' }} />
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>Network Status</span>
-            </div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: providerIsOnline || !isProvider ? '#30d158' : '#ff9f0a', letterSpacing: '-0.03em' }}>
-              {providerIsOnline || !isProvider ? 'Operational' : 'Node Offline'}
-            </div>
             {isProvider && (
-              <button
-                onClick={handleProviderToggle}
-                disabled={onlineBusy || !providerNode}
-                style={{ marginTop: 10, padding: '8px 12px', background: providerIsOnline ? 'rgba(255,55,95,0.1)' : 'rgba(48,209,88,0.12)', border: `1px solid ${providerIsOnline ? 'rgba(255,55,95,0.25)' : 'rgba(48,209,88,0.25)'}`, borderRadius: 9, color: providerIsOnline ? '#ff375f' : '#30d158', cursor: onlineBusy ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}
-              >
-                {onlineBusy ? 'Updating...' : providerIsOnline ? 'Go Offline' : 'Go Online'}
-              </button>
+              <div style={{ background: 'rgba(41,151,255,0.05)', border: '1px solid rgba(41,151,255,0.15)', borderRadius: 18, padding: '20px 22px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: providerIsOnline || !isProvider ? '#30d158' : '#ff9f0a', display: 'inline-block', boxShadow: providerIsOnline || !isProvider ? '0 0 8px #30d158' : '0 0 8px #ff9f0a' }} />
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>Node Link Status</span>
+                </div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: providerIsOnline || !isProvider ? '#30d158' : '#ff9f0a', letterSpacing: '-0.03em' }}>
+                  {providerIsOnline || !isProvider ? 'Operational' : 'Node Paused'}
+                </div>
+              </div>
             )}
-          </div>
 
           <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '24px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
