@@ -9,9 +9,9 @@ const STEPS = [
     icon: <Terminal size={18} color="#bf5af2" />,
     ac:   '#bf5af2',
     title: 'Install the StoraChain Agent',
-    desc:  'Run the installer for your operating system. It will automatically detect your environment and install necessary background services.',
-    code:  '# Windows (Run as Admin):\nwindows-setup.bat\n\n# Linux / VPS:\nsh linux-setup.sh',
-    note:  'Ensure you have Node.js 18+ installed before running. The script will ask for your email/password to link your node.',
+    desc:  'Download the installer for your operating system from the section below. It automatically sets up the background service and links your account.',
+    code:  null,
+    note:  'The installer only asks for your StoraChain email and password — everything else is automatic.',
   },
   {
     n:    2,
@@ -81,6 +81,7 @@ function FAQ({ q, a }) {
 export default function ProviderInstructions() {
   const [active, setActive] = useState(null);
   const [node, setNode] = useState(null);
+  const [osTab, setOsTab] = useState('windows');
 
   useEffect(() => {
     api.get('/providers/me').then((r) => setNode(r.data)).catch(() => setNode(null));
@@ -122,22 +123,88 @@ export default function ProviderInstructions() {
         </div>
       </div>
 
-      {/* Download button */}
-      <div style={{ marginBottom: 32, display: 'flex', gap: 12 }}>
-        <a
-          href="https://github.com/StoraChain/provider-agent/releases/latest"
-          target="_blank" rel="noreferrer"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 24px', background: 'rgba(41,151,255,0.15)', border: '1px solid rgba(41,151,255,0.4)', borderRadius: 12, color: '#2997ff', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem' }}>
-          <Download size={15} /> Download Provider Agent (v1.0.0)
-          <ExternalLink size={12} style={{ opacity: 0.5 }} />
-        </a>
-        <a
-          href="https://sepolia.etherscan.io/address/0xED6cDE2DC1d00203A19a9d7B8DA45Bc7e5dEa951"
-          target="_blank" rel="noreferrer"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 20px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontWeight: 600, fontSize: '0.85rem' }}>
-          Smart Contract <ExternalLink size={12} />
-        </a>
-      </div>
+      {/* ── OS Download Tabs ─────────────────────────────────────────────── */}
+      {(() => {
+        const BASE = 'https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent/scripts';
+        const DL   = 'https://github.com/MiyuruDilakshan/StoraChain/raw/main/provider-agent/scripts';
+        const tabs = [
+          {
+            id: 'windows', label: 'Windows', emoji: '🪟',
+            dlUrl:  `${DL}/windows-setup.bat`,
+            dlName: 'windows-setup.bat',
+            cmd:    null,
+            steps:  [
+              'Click "Download Installer" below',
+              'Right-click the downloaded file → Run as Administrator',
+              'Enter your StoraChain email & password when prompted',
+              'Agent installs and starts automatically in the background',
+            ],
+            note: 'Node.js 20 will be silently auto-installed if not already present.',
+          },
+          {
+            id: 'linux', label: 'Linux', emoji: '🐧',
+            dlUrl:  `${DL}/linux-setup.sh`,
+            dlName: 'linux-setup.sh',
+            cmd:    `curl -fsSL ${BASE}/linux-setup.sh | sudo bash`,
+            steps:  [
+              'Open a terminal and run the one-liner below',
+              'Enter your StoraChain email & password when prompted',
+              'Agent starts as a PM2 background service',
+            ],
+            note: 'Requires Ubuntu 20+, Debian 11+, or CentOS 7+. Run as root / sudo.',
+          },
+          {
+            id: 'vps', label: 'VPS / Server', emoji: '🖥️',
+            dlUrl:  `${DL}/vps-setup.sh`,
+            dlName: 'vps-setup.sh',
+            cmd:    `curl -fsSL ${BASE}/vps-setup.sh | sudo bash`,
+            steps:  [
+              'SSH into your VPS as root',
+              'Run the one-liner below',
+              'Enter your StoraChain email & password when prompted',
+              'Agent auto-starts via PM2 and survives reboots',
+            ],
+            note: 'Make sure TCP port 3001 is open on your VPS firewall for chunk requests.',
+          },
+        ];
+        const t = tabs.find(x => x.id === osTab);
+        return (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              {tabs.map(tab => (
+                <button key={tab.id} onClick={() => setOsTab(tab.id)}
+                  style={{ padding: '8px 18px', borderRadius: 10, border: `1px solid ${osTab === tab.id ? 'rgba(41,151,255,0.5)' : 'rgba(255,255,255,0.1)'}`, background: osTab === tab.id ? 'rgba(41,151,255,0.15)' : 'transparent', color: osTab === tab.id ? '#2997ff' : 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {tab.emoji} {tab.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ background: 'rgba(41,151,255,0.04)', border: '1px solid rgba(41,151,255,0.15)', borderRadius: 16, padding: '22px 24px' }}>
+              <ol style={{ margin: '0 0 16px', paddingLeft: 20, color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', lineHeight: 2.1 }}>
+                {t.steps.map((s, i) => <li key={i}>{s}</li>)}
+              </ol>
+              {t.cmd && (
+                <div style={{ position: 'relative', marginBottom: 16 }}>
+                  <pre style={{ margin: 0, padding: '13px 16px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#30d158', fontSize: '0.78rem', fontFamily: 'monospace', overflowX: 'auto', whiteSpace: 'pre' }}>{t.cmd}</pre>
+                  <CopyBtn text={t.cmd} />
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <a href={t.dlUrl} download={t.dlName} target="_blank" rel="noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', background: 'rgba(41,151,255,0.15)', border: '1px solid rgba(41,151,255,0.4)', borderRadius: 11, color: '#2997ff', textDecoration: 'none', fontWeight: 700, fontSize: '0.88rem' }}>
+                  <Download size={14} /> Download {t.dlName}
+                </a>
+                <a href="https://sepolia.etherscan.io/address/0x11473Ca21047272a008f27E73161b258C8b62F45" target="_blank" rel="noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 11, color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontWeight: 600, fontSize: '0.82rem' }}>
+                  Smart Contract <ExternalLink size={11} />
+                </a>
+                <div style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.35)', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 9 }}>
+                  💡 {t.note}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Steps */}
       <div style={{ marginBottom: 40 }}>

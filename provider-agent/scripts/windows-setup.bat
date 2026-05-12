@@ -20,31 +20,23 @@ if %ERRORLEVEL% NEQ 0 (
     echo [1/4] Node.js found: OK
 )
 
-:: ── Locate source files ───────────────────────────────────────────────────────
-:: This bat is inside: <project>\provider-agent\scripts\
-:: So go up two levels to get the project root, then into provider-agent.
-set "SCRIPT_DIR=%~dp0"
-:: Remove trailing backslash
-set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
-:: Go up one level from scripts\ → provider-agent\
-for %%i in ("%SCRIPT_DIR%") do set "AGENT_SOURCE=%%~dpi"
-set "AGENT_SOURCE=%AGENT_SOURCE:~0,-1%"
-
 echo [2/4] Creating agent directory...
 set "AGENT_DEST=%USERPROFILE%\storachain-agent"
-if not exist "%AGENT_DEST%" mkdir "%AGENT_DEST%"
-if not exist "%AGENT_DEST%\src" mkdir "%AGENT_DEST%\src"
+if not exist "%AGENT_DEST%"         mkdir "%AGENT_DEST%"
+if not exist "%AGENT_DEST%\src"     mkdir "%AGENT_DEST%\src"
 if not exist "%AGENT_DEST%\scripts" mkdir "%AGENT_DEST%\scripts"
 
-echo [3/4] Copying agent files from project...
-copy /Y "%AGENT_SOURCE%\agent.js"              "%AGENT_DEST%\agent.js"              >nul
-copy /Y "%AGENT_SOURCE%\src\server.js"         "%AGENT_DEST%\src\server.js"         >nul
-copy /Y "%AGENT_SOURCE%\src\storage.js"        "%AGENT_DEST%\src\storage.js"        >nul
-copy /Y "%AGENT_SOURCE%\src\registry.js"       "%AGENT_DEST%\src\registry.js"       >nul
-copy /Y "%AGENT_SOURCE%\scripts\setup-wizard.js" "%AGENT_DEST%\scripts\setup-wizard.js" >nul
+echo [3/4] Downloading agent files from GitHub...
+set "REPO=https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/tree/main/provider-agent"
+powershell -Command "Invoke-WebRequest -Uri '%REPO%/agent.js'                -OutFile '%AGENT_DEST%\agent.js'                -UseBasicParsing"
+powershell -Command "Invoke-WebRequest -Uri '%REPO%/src/server.js'           -OutFile '%AGENT_DEST%\src\server.js'           -UseBasicParsing"
+powershell -Command "Invoke-WebRequest -Uri '%REPO%/src/storage.js'          -OutFile '%AGENT_DEST%\src\storage.js'          -UseBasicParsing"
+powershell -Command "Invoke-WebRequest -Uri '%REPO%/src/registry.js'         -OutFile '%AGENT_DEST%\src\registry.js'         -UseBasicParsing"
+powershell -Command "Invoke-WebRequest -Uri '%REPO%/src/integrity.js'        -OutFile '%AGENT_DEST%\src\integrity.js'        -UseBasicParsing"
+powershell -Command "Invoke-WebRequest -Uri '%REPO%/scripts/setup-wizard.js' -OutFile '%AGENT_DEST%\scripts\setup-wizard.js' -UseBasicParsing"
 
 if not exist "%AGENT_DEST%\agent.js" (
-    echo ERROR: Failed to copy agent files. Make sure this bat is inside the StoraChain project.
+    echo ERROR: Download failed. Check your internet connection and try again.
     pause
     exit /b 1
 )

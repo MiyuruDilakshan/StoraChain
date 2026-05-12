@@ -44,12 +44,13 @@ mkdir -p "$AGENT_DIR/src" "$AGENT_DIR/scripts"
 cd "$AGENT_DIR"
 
 # Download agent files from GitHub
-REPO="https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent"
+REPO="https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/tree/main/provider-agent"
 echo "  [3/4] Downloading agent files..."
 curl -fsSL "$REPO/agent.js"                    -o agent.js
 curl -fsSL "$REPO/src/server.js"               -o src/server.js
 curl -fsSL "$REPO/src/storage.js"              -o src/storage.js
 curl -fsSL "$REPO/src/registry.js"             -o src/registry.js
+curl -fsSL "$REPO/src/integrity.js"            -o src/integrity.js
 curl -fsSL "$REPO/scripts/setup-wizard.js"     -o scripts/setup-wizard.js
 
 # Install dependencies
@@ -60,30 +61,13 @@ fi
 npm install -g pm2 >/dev/null 2>&1
 npm install axios dotenv express uuid --save >/dev/null 2>&1
 
-# ── Ask for backend URL ────────────────────────────────────────────────────
-# VPS providers cannot reach localhost:5000 on the project owner's PC.
-echo ""
-echo "╔══════════════════════════════════════════════╗"
-echo "║  Backend Server URL                          ║"
-echo "║  The public address of the StoraChain API.   ║"
-echo "║  e.g. https://storachain.onrender.com        ║"
-echo "╚══════════════════════════════════════════════╝"
-
-if [ -z "$STORACHAIN_BACKEND" ]; then
-  read -rp "  Enter backend URL: " STORACHAIN_BACKEND
-  STORACHAIN_BACKEND="${STORACHAIN_BACKEND%/}"
-fi
-
-if [ -z "$STORACHAIN_BACKEND" ]; then
-  echo "  ERROR: Backend URL is required."
-  exit 1
-fi
-
+# ── Backend URL (production) ─────────────────────────────────────────────
+STORACHAIN_BACKEND="https://api.storachain.miyuru.dev"
 echo ""
 echo "  Using backend: $STORACHAIN_BACKEND"
 echo ""
 
-# Run setup wizard
+# Run setup wizard (only asks for email + password)
 node scripts/setup-wizard.js --backend "$STORACHAIN_BACKEND"
 
 echo ""
