@@ -152,8 +152,13 @@ async function sendHeartbeat({ backendUrl, jwt, storageManager, integrityMonitor
           envContent = envContent.replace(/^SPACE_GB=.*$/m, `SPACE_GB=${capacityGB}`);
           changed = true;
         }
-        if (diskPath !== undefined && diskPath !== process.env.STORAGE_DIR) {
-          envContent = envContent.replace(/^STORAGE_DIR=.*$/m, `STORAGE_DIR=${diskPath.replace(/\\/g, '\\\\')}`);
+        // Normalize both paths before comparing to avoid double-vs-single backslash mismatches
+        const normalizedDiskPath  = diskPath             ? path.normalize(diskPath)                        : undefined;
+        const normalizedEnvPath   = process.env.STORAGE_DIR ? path.normalize(process.env.STORAGE_DIR)    : '';
+        if (normalizedDiskPath !== undefined && normalizedDiskPath !== normalizedEnvPath) {
+          // Write with forward slashes to avoid double-backslash issues in .env
+          const safeDir = normalizedDiskPath.replace(/\\/g, '/');
+          envContent = envContent.replace(/^STORAGE_DIR=.*$/m, `STORAGE_DIR=${safeDir}`);
           changed = true;
         }
         if (walletAddress !== undefined && walletAddress !== process.env.WALLET_ADDRESS) {
