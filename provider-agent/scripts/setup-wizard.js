@@ -12,7 +12,7 @@ function getArg(flag, defaultVal) {
   return i !== -1 && args[i + 1] !== undefined ? args[i + 1] : defaultVal;
 }
 
-const BACKEND_URL = getArg('--backend', process.env.BACKEND_URL || 'http://localhost:5000');
+const BACKEND_URL = getArg('--backend', process.env.BACKEND_URL || 'https://api.storachain.miyuru.dev');
 
 // ── Readline setup ────────────────────────────────────────────────
 const rl = readline.createInterface({

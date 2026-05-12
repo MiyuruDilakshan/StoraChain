@@ -61,7 +61,7 @@ echo   You only need your StoraChain email and password.
 echo ============================================================
 echo.
 
-node scripts/setup-wizard.js --backend "http://localhost:5000"
+node scripts/setup-wizard.js --backend "https://api.storachain.miyuru.dev"
 
 echo.
 pause

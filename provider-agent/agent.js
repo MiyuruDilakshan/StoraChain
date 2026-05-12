@@ -33,7 +33,7 @@ Options:
   --price   <number>   Price per GB per day in SCT tokens     (default: 1)
   --region  <string>   Geographic region label e.g. EU, US   (default: local)
   --dir     <path>     Directory to store chunks              (default: ./storachain-storage)
-  --backend <url>      StoraChain backend URL                 (default: http://localhost:5000)
+  --backend <url>      StoraChain backend URL                 (default: https://api.storachain.miyuru.dev)
   --uninstall          Delete local chunks and deactivate provider
   --help               Show this help message
   `);
@@ -46,7 +46,7 @@ const SPACE_GB     = parseFloat(getArg('--space', process.env.SPACE_GB || '10'))
 const WALLET       = getArg('--wallet',   null) || process.env.WALLET_ADDRESS || '';
 const PRICE_PER_GB = parseFloat(getArg('--price', process.env.PRICE_PER_GB || '1'));
 const REGION       = getArg('--region',   process.env.REGION       || 'local');
-const BACKEND_URL  = getArg('--backend',  process.env.BACKEND_URL  || 'http://localhost:5000');
+const BACKEND_URL  = getArg('--backend',  process.env.BACKEND_URL  || 'https://api.storachain.miyuru.dev');
 const AGENT_JWT    = process.env.AGENT_JWT || '';
 const AGENT_KEY    = process.env.BACKEND_AGENT_KEY || 'agent-secret-key';
 const STORAGE_DIR  = getArg('--dir', process.env.STORAGE_DIR || './storachain-storage');

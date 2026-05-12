@@ -11,7 +11,7 @@ import api from '../../api/client';
 
 async function downloadFile(fileId, fileName) {
   const token = localStorage.getItem('token');
-  const res = await fetch(`http://localhost:5000/api/storage/download/${fileId}`, {
+  const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/storage/download/${fileId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Download failed');

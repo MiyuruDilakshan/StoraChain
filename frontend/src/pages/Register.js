@@ -138,7 +138,7 @@ export default function Register() {
     if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
     setError(""); setSuccess(""); setLoading(true);
     try {
-      await axios.post("http://localhost:5000/api/auth/register", form);
+      await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/register`, form);
       const planName = PLANS.find(p => p.id === form.plan)?.name || 'Free';
       setSuccess(`Registered on the ${planName} plan! Redirecting to login...`);
       setTimeout(() => navigate("/login"), 2000);

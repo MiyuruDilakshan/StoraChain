@@ -47,8 +47,8 @@ async function start() {
   console.log('--------------------------\\n');
 
   // Backend URL
-  let backendUrl = await question('Backend API URL (Press Enter for http://localhost:5000): ');
-  if (!backendUrl.trim()) backendUrl = 'http://localhost:5000';
+  let backendUrl = await question('Backend API URL (Press Enter for https://api.storachain.miyuru.dev): ');
+  if (!backendUrl.trim()) backendUrl = 'https://api.storachain.miyuru.dev';
 
   // Login
   console.log('\\nPlease log in with your StoraChain account:');

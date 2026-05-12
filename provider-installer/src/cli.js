@@ -10,7 +10,7 @@ import { getMachineId } from 'node-machine-id';
 import fetch from 'node-fetch';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://api.storachain.miyuru.dev';
 const PROVIDER_HOME = path.join(os.homedir(), '.storachain-provider');
 const CONFIG_FILE = path.join(PROVIDER_HOME, 'config.json');
 
