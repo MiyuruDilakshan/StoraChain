@@ -584,7 +584,12 @@ router.post('/replication-monitor/run', async (req, res) => {
 });
 
 // ─── GET /api/admin/providers/online ──────────────────────────────────────
-// Pings each provider agent URL to determine real-time online/offline status.
+// Determines real-time online/offline status using a hybrid strategy:
+//   1. Try HTTP GET /health on the agent URL (works for VPS providers with open ports).
+//   2. If that fails (e.g. NAT-blocked home providers), fall back to lastHeartbeatAt:
+//      if a heartbeat was received within 2 minutes, the provider is considered online.
+const HEARTBEAT_ONLINE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes (heartbeat every 30s)
+
 router.get('/providers/online', async (req, res) => {
   try {
     const providers = await StorageListing.find()
@@ -595,42 +600,56 @@ router.get('/providers/online', async (req, res) => {
       providers.map(async (p) => {
         let isOnline = false;
         let latencyMs = null;
+        let onlineSource = 'offline'; // 'ping' | 'heartbeat' | 'offline'
         const start = Date.now();
         try {
-          await axios.get(`${p.agentUrl}/health`, { timeout: 4000 });
+          await axios.get(`${p.agentUrl}/health`, { timeout: 3000 });
           isOnline = true;
           latencyMs = Date.now() - start;
+          onlineSource = 'ping';
         } catch {
-          isOnline = false;
+          // HTTP ping failed — fall back to heartbeat-based detection
+          if (p.lastHeartbeatAt) {
+            const msSinceHeartbeat = Date.now() - new Date(p.lastHeartbeatAt).getTime();
+            if (msSinceHeartbeat <= HEARTBEAT_ONLINE_THRESHOLD_MS) {
+              isOnline = true;
+              onlineSource = 'heartbeat';
+              latencyMs = null; // can't measure latency without direct ping
+            }
+          }
         }
         return {
-          _id:         p._id,
-          providerId:  p.providerId,
-          agentUrl:    p.agentUrl,
-          region:      p.region,
-          capacityGB:  p.capacityGB,
-          usedGB:      p.usedGB,
-          uptimePct:   p.uptimePct,
-          isActive:    p.isActive,
-          totalEarnings: p.totalEarnings,
-          walletAddress: p.walletAddress,
-          hardware:    p.hardware,
-          createdAt:   p.createdAt,
+          _id:            p._id,
+          providerId:     p.providerId,
+          agentUrl:       p.agentUrl,
+          region:         p.region,
+          capacityGB:     p.capacityGB,
+          usedGB:         p.usedGB,
+          uptimePct:      p.uptimePct,
+          isActive:       p.isActive,
+          isSuspended:    p.isSuspended,
+          penaltyPoints:  p.penaltyPoints,
+          totalEarnings:  p.totalEarnings,
+          walletAddress:  p.walletAddress,
+          hardware:       p.hardware,
+          lastHeartbeatAt: p.lastHeartbeatAt,
+          createdAt:      p.createdAt,
           isOnline,
           latencyMs,
+          onlineSource,
         };
       })
     );
 
-    // Deduplicate by Agent URL for the summary count (if 23 registrations point to one agent, it counts as 1 node)
+    // Deduplicate by agentUrl for summary counts
     const uniqueOnline = new Set(results.filter(p => p.isOnline).map(p => p.agentUrl)).size;
     const uniqueTotal  = new Set(results.map(p => p.agentUrl)).size;
 
     res.json({ 
-      providers: results, 
-      onlineCount: uniqueOnline, 
+      providers:    results, 
+      onlineCount:  uniqueOnline, 
       offlineCount: Math.max(0, uniqueTotal - uniqueOnline), 
-      total: uniqueTotal 
+      total:        uniqueTotal,
     });
   } catch (err) {
     console.error('[Admin] Online providers error:', err.message);

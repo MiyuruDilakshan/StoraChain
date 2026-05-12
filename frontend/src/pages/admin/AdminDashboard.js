@@ -548,6 +548,10 @@ function ProviderMonitorTab() {
         {(data?.providers || []).map((p, i) => {
           const usedPct = p.capacityGB > 0 ? Math.min((p.usedGB / p.capacityGB) * 100, 100) : 0;
           const barC = usedPct > 80 ? '#ff375f' : usedPct > 60 ? '#ff9f0a' : '#30d158';
+          const isHeartbeat = p.onlineSource === 'heartbeat';
+          const hbAgo = p.lastHeartbeatAt
+            ? (() => { const s = Math.floor((Date.now() - new Date(p.lastHeartbeatAt)) / 1000); return s < 60 ? `${s}s ago` : `${Math.floor(s/60)}m ago`; })()
+            : null;
           return (
             <div key={p._id || i}
               style={{ display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 1.2fr 1.4fr 1fr 1fr 1fr', gap: 8, padding: '13px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}
@@ -560,6 +564,7 @@ function ProviderMonitorTab() {
               <div>
                 <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#fff' }}>{p.providerId?.name || 'Unknown'}</div>
                 <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{p.agentUrl}</div>
+                {p.isSuspended && <div style={{ fontSize: '0.62rem', color: '#ff375f', marginTop: 2 }}>⚠ Suspended</div>}
               </div>
               <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>{p.region || 'local'}</div>
               <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', wordBreak: 'break-all' }}>{p.hardware?.ip || '—'}</div>
@@ -569,8 +574,14 @@ function ProviderMonitorTab() {
                   <div style={{ height: '100%', width: `${usedPct}%`, background: barC, borderRadius: 3 }}/>
                 </div>
               </div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: p.latencyMs ? (p.latencyMs < 200 ? '#30d158' : p.latencyMs < 500 ? '#ff9f0a' : '#ff375f') : 'rgba(255,255,255,0.25)' }}>
-                {p.latencyMs ? `${p.latencyMs}ms` : '—'}
+              {/* Latency — show ms for direct ping, heartbeat time for NAT providers */}
+              <div>
+                {p.latencyMs
+                  ? <span style={{ fontSize: '0.82rem', fontWeight: 700, color: p.latencyMs < 200 ? '#30d158' : p.latencyMs < 500 ? '#ff9f0a' : '#ff375f' }}>{p.latencyMs}ms</span>
+                  : isHeartbeat && hbAgo
+                    ? <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)' }} title="NAT provider — status via heartbeat">HB {hbAgo}</span>
+                    : <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.82rem' }}>—</span>
+                }
               </div>
               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#2997ff' }}>{p.uptimePct ?? 0}%</div>
               <div>
@@ -582,7 +593,7 @@ function ProviderMonitorTab() {
                   color: p.isOnline ? '#30d158' : '#ff375f',
                 }}>
                   {p.isOnline ? <Wifi size={9}/> : <WifiOff size={9}/>}
-                  {p.isOnline ? 'Online' : 'Offline'}
+                  {p.isOnline ? (isHeartbeat ? 'Online·HB' : 'Online') : 'Offline'}
                 </span>
               </div>
             </div>
