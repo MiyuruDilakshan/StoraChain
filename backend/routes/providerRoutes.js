@@ -101,7 +101,11 @@ router.put('/heartbeat', authMiddleware, async (req, res) => {
     if (uptimePct !== undefined) listing.uptimePct = uptimePct;
     listing.lastHeartbeatAt   = new Date();
     listing.consecutiveMisses = 0;
-    listing.isActive          = true;  // Mark alive again if it was marked dead
+    // Only mark active if provider hasn't manually paused their node.
+    // If isPaused=true, the heartbeat should NOT override their offline choice.
+    if (!listing.isPaused) {
+      listing.isActive = true;
+    }
 
     // Update disk stats from integrity report
     if (integrityReport) {
@@ -118,7 +122,8 @@ router.put('/heartbeat', authMiddleware, async (req, res) => {
 
     res.json({ 
       message: 'Heartbeat received',
-      suspended: listing.isSuspended,
+      suspended:  listing.isSuspended,
+      isPaused:   listing.isPaused,
       penaltyPoints: listing.penaltyPoints,
       reputationScore: listing.reputationScore,
       config: {
@@ -158,6 +163,10 @@ router.put('/toggle-pause', authMiddleware, async (req, res) => {
     if (!listing) return res.status(404).json({ message: 'Provider not found. Install the agent first.' });
 
     listing.isPaused = !listing.isPaused;
+    // Keep isActive in sync with isPaused:
+    // - Going offline (pause) → isActive=false so chunk distribution skips this provider
+    // - Going online (unpause) → isActive=true so chunk distribution includes this provider
+    listing.isActive = !listing.isPaused;
     await listing.save();
 
     // ── Try to start/stop the local PM2 process ──────────────────

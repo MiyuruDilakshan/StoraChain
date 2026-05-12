@@ -1,7 +1,117 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { HardDrive, CheckCircle, AlertCircle, RefreshCw, Wifi, Save, Info, Trash2, Shield, ShieldAlert, ShieldCheck, AlertTriangle, Clock } from 'lucide-react';
+import { HardDrive, CheckCircle, AlertCircle, RefreshCw, Wifi, Save, Info, Trash2, Shield, ShieldAlert, ShieldCheck, AlertTriangle, Clock, Terminal, Copy, BookOpen } from 'lucide-react';
 import api from '../../api/client';
+
+/* ── VPS Setup Guide Modal ──────────────────────────────────────────────── */
+function VpsSetupGuide({ onClose }) {
+  const INSTALL_CMD = 'bash <(curl -fsSL https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent/scripts/linux-setup.sh)';
+  const [copied, setCopied] = useState(false);
+  const copy = () => { navigator.clipboard.writeText(INSTALL_CMD); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+
+  const steps = [
+    {
+      num: '1', title: 'Create a StoraChain provider account',
+      body: 'Register at storachain.miyuru.dev — use a unique email per VPS (e.g. provider1@yourdomain.com). The role must be provider.',
+    },
+    {
+      num: '2', title: 'Open port 3001 on your VPS firewall',
+      body: null,
+      sub: [
+        { label: 'UFW (Ubuntu/Debian)',      code: 'sudo ufw allow 3001/tcp && sudo ufw reload' },
+        { label: 'iptables',                  code: 'sudo iptables -A INPUT -p tcp --dport 3001 -j ACCEPT' },
+        { label: 'Hetzner / DigitalOcean',   code: 'Add TCP 3001 inbound rule in the cloud console firewall.' },
+        { label: 'AWS EC2',                  code: 'EC2 → Security Groups → Inbound → Add Rule: TCP 3001 0.0.0.0/0' },
+      ],
+    },
+    {
+      num: '3', title: 'Run the one-line installer on your VPS',
+      body: 'SSH into your VPS and run the command below. It will install Node.js, download the agent, and start it with PM2.',
+    },
+    {
+      num: '4', title: 'Set storage allocation',
+      body: 'After install, the agent registers with 0 GB. Return to this page and set the space you want to offer (e.g. 50 GB). Or edit ~/storachain-agent/.env → SPACE_GB=50 then pm2 restart storachain-provider.',
+    },
+    {
+      num: '5', title: 'Set region for AI matchmaking',
+      body: 'Edit ~/storachain-agent/.env on each VPS:\n  REGION=eu-west  (or us-east, ap-south, etc.)\nThen: pm2 restart storachain-provider',
+    },
+  ];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      onClick={onClose}>
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={e => e.stopPropagation()}
+        style={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, width: '100%', maxWidth: 680, maxHeight: '90vh', overflow: 'auto', padding: '32px 36px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(41,151,255,0.12)', border: '1px solid rgba(41,151,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Terminal size={16} color="#2997ff" />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#fff' }}>VPS Provider Setup Guide</div>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>One-command install — Linux / Ubuntu / Debian</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>✕</button>
+        </div>
+
+        {/* Install command box */}
+        <div style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(41,151,255,0.3)', borderRadius: 12, padding: '14px 18px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>Install command — run on VPS</span>
+            <button onClick={copy} style={{ display: 'flex', alignItems: 'center', gap: 5, background: copied ? 'rgba(48,209,88,0.15)' : 'rgba(255,255,255,0.06)', border: `1px solid ${copied ? 'rgba(48,209,88,0.4)' : 'rgba(255,255,255,0.12)'}`, borderRadius: 7, padding: '4px 10px', color: copied ? '#30d158' : 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, fontFamily: 'inherit', transition: 'all 0.2s' }}>
+              <Copy size={11} /> {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+          <code style={{ fontSize: '0.77rem', color: '#2997ff', fontFamily: 'monospace', wordBreak: 'break-all', display: 'block', lineHeight: 1.6 }}>{INSTALL_CMD}</code>
+        </div>
+
+        {/* Steps */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {steps.map(s => (
+            <div key={s.num} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+              <div style={{ minWidth: 28, height: 28, borderRadius: '50%', background: 'rgba(41,151,255,0.12)', border: '1px solid rgba(41,151,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800, color: '#2997ff', flexShrink: 0, marginTop: 2 }}>{s.num}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', marginBottom: 4 }}>{s.title}</div>
+                {s.body && <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{s.body}</div>}
+                {s.sub && s.sub.map((sub, i) => (
+                  <div key={i} style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', marginBottom: 3 }}>{sub.label}:</div>
+                    <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '7px 12px' }}>
+                      <code style={{ fontSize: '0.74rem', color: '#e5e5e5', fontFamily: 'monospace', wordBreak: 'break-all' }}>{sub.code}</code>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* PM2 commands reference */}
+        <div style={{ marginTop: 24, padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12 }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: 10 }}>Useful PM2 Commands</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {[
+              ['View logs',    'pm2 logs storachain-provider'],
+              ['Status',       'pm2 status'],
+              ['Restart',      'pm2 restart storachain-provider'],
+              ['Stop',         'pm2 stop storachain-provider'],
+              ['Auto-startup', 'pm2 startup && pm2 save'],
+              ['Update agent', 'cd ~/storachain-agent && curl -fsSL https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent/agent.js -o agent.js && curl -fsSL https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent/src/registry.js -o src/registry.js && pm2 restart storachain-provider'],
+            ].map(([label, cmd], i) => (
+              <div key={i}>
+                <div style={{ fontSize: '0.64rem', color: 'rgba(255,255,255,0.25)', marginBottom: 2 }}>{label}</div>
+                <code style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{cmd}</code>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 const FV = { hidden:{opacity:0,y:20}, show:{opacity:1,y:0,transition:{duration:0.5}} };
 
@@ -38,6 +148,9 @@ export default function MyStorageNode({ user }) {
   // Uninstall logic
   const [uninstallStage, setUninstallStage] = useState(0); // 0=none, 1=confirm, 2=progress
   const [uninstallLogs, setUninstallLogs] = useState([]);
+
+  // VPS Setup Guide
+  const [showGuide, setShowGuide] = useState(false);
 
   const showMsg = (m, err=false) => { setToast(m); setToastErr(err); setTimeout(()=>setToast(''), 4000); };
   const fmtGB = v => v >= 1 ? `${Number(v).toFixed(1)} GB` : `${(v*1024).toFixed(0)} MB`;
@@ -209,6 +322,7 @@ export default function MyStorageNode({ user }) {
   if (!node) return (
     <motion.div variants={FV} initial="hidden" animate="show" style={{ maxWidth: 680 }}>
       <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} } @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
+      {showGuide && <VpsSetupGuide onClose={() => setShowGuide(false)} />}
 
       {/* Hero banner */}
       <div style={{ background: 'linear-gradient(135deg,rgba(191,90,242,0.08),rgba(41,151,255,0.06))', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 20, padding: '32px 32px 28px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
@@ -241,6 +355,9 @@ export default function MyStorageNode({ user }) {
           <a href="/app/setup" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 22px', background: 'rgba(191,90,242,0.15)', border: '1px solid rgba(191,90,242,0.4)', borderRadius: 11, color: '#bf5af2', fontWeight: 700, fontSize: '0.88rem', textDecoration: 'none' }}>
             View Full Setup Guide →
           </a>
+          <button onClick={() => setShowGuide(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '12px 22px', background: 'rgba(41,151,255,0.1)', border: '1px solid rgba(41,151,255,0.35)', borderRadius: 11, color: '#2997ff', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Terminal size={14}/> VPS Setup Guide
+          </button>
           <button onClick={fetchNode} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '12px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit' }}>
             <RefreshCw size={13} /> Check Again
           </button>
@@ -261,6 +378,7 @@ export default function MyStorageNode({ user }) {
     <motion.div variants={FV} initial="hidden" animate="show" style={{ maxWidth:900 }}>
       <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
       <Toast msg={toast} err={toastErr}/>
+      {showGuide && <VpsSetupGuide onClose={() => setShowGuide(false)} />}
 
       {/* VPN-Style Master Toggle */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.6 }}
@@ -332,9 +450,14 @@ export default function MyStorageNode({ user }) {
 
       {/* Settings form */}
       <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:18, padding:'28px' }}>
-        <h3 style={{ fontSize:'1rem', fontWeight:800, color:'#fff', margin:'0 0 24px', display:'flex', alignItems:'center', gap:8 }}>
-          <HardDrive size={16} color="#bf5af2"/> Node Configuration
-        </h3>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
+          <h3 style={{ fontSize:'1rem', fontWeight:800, color:'#fff', margin:0, display:'flex', alignItems:'center', gap:8 }}>
+            <HardDrive size={16} color="#bf5af2"/> Node Configuration
+          </h3>
+          <button onClick={() => setShowGuide(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', background:'rgba(41,151,255,0.08)', border:'1px solid rgba(41,151,255,0.25)', borderRadius:9, color:'#2997ff', cursor:'pointer', fontFamily:'inherit', fontSize:'0.76rem', fontWeight:700 }}>
+            <BookOpen size={12}/> VPS Setup Guide
+          </button>
+        </div>
 
         {/* Disk selector */}
         <div style={{ marginBottom:24 }}>

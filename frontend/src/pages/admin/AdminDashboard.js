@@ -6,7 +6,7 @@ import {
   CheckCircle, XCircle, AlertCircle, Shield,
   FileText, ShoppingBag, Trash2, Edit3,
   Search, Eye, BarChart2, Wifi, WifiOff,
-  ShieldAlert, Flag, Terminal, Copy, BookOpen,
+  ShieldAlert, Flag,
 } from 'lucide-react';
 import api from '../../api/client';
 
@@ -482,123 +482,11 @@ function ProvidersTab({ providers, onStatusChange }) {
   );
 }
 
-/* ── VPS Setup Guide ─────────────────────────────────────────────────────── */
-function VpsSetupGuide({ onClose }) {
-  const INSTALL_CMD = 'bash <(curl -fsSL https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent/scripts/linux-setup.sh)';
-  const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(INSTALL_CMD); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-
-  const steps = [
-    {
-      num: '1', title: 'Create a StoraChain provider account',
-      body: 'Register at storachain.miyuru.dev — use a unique email per VPS (e.g. provider1@yourdomain.com). The role must be provider.',
-    },
-    {
-      num: '2', title: 'Open port 3001 on your VPS firewall',
-      body: null,
-      sub: [
-        { label: 'UFW (Ubuntu/Debian)',      code: 'sudo ufw allow 3001/tcp && sudo ufw reload' },
-        { label: 'iptables',                  code: 'sudo iptables -A INPUT -p tcp --dport 3001 -j ACCEPT' },
-        { label: 'Hetzner / DigitalOcean',   code: 'Add TCP 3001 inbound rule in the cloud console firewall.' },
-        { label: 'AWS EC2',                  code: 'EC2 → Security Groups → Inbound → Add Rule: TCP 3001 0.0.0.0/0' },
-      ],
-    },
-    {
-      num: '3', title: 'Run the one-line installer on your VPS',
-      body: 'SSH into your VPS and run the command below. It will install Node.js, download the agent, and start it with PM2.',
-    },
-    {
-      num: '4', title: 'Set storage allocation',
-      body: 'After install, the agent registers with 0 GB. Go to My Storage Node page (log in as the provider) and set the space you want to offer (e.g. 50 GB). Or edit ~/.env → SPACE_GB=50 then pm2 restart storachain-provider.',
-    },
-    {
-      num: '5', title: 'Set region for AI matchmaking',
-      body: 'Edit ~/storachain-agent/.env on each VPS:\n  REGION=eu-west  (or us-east, ap-south, etc.)\nThen: pm2 restart storachain-provider',
-    },
-  ];
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-      onClick={onClose}>
-      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-        onClick={e => e.stopPropagation()}
-        style={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, width: '100%', maxWidth: 680, maxHeight: '90vh', overflow: 'auto', padding: '32px 36px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(41,151,255,0.12)', border: '1px solid rgba(41,151,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Terminal size={16} color="#2997ff" />
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#fff' }}>VPS Provider Setup Guide</div>
-              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>One-command install — Linux / Ubuntu / Debian</div>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>✕</button>
-        </div>
-
-        {/* Install command box */}
-        <div style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(41,151,255,0.3)', borderRadius: 12, padding: '14px 18px', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>Install command — run on VPS</span>
-            <button onClick={copy} style={{ display: 'flex', alignItems: 'center', gap: 5, background: copied ? 'rgba(48,209,88,0.15)' : 'rgba(255,255,255,0.06)', border: `1px solid ${copied ? 'rgba(48,209,88,0.4)' : 'rgba(255,255,255,0.12)'}`, borderRadius: 7, padding: '4px 10px', color: copied ? '#30d158' : 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, fontFamily: 'inherit', transition: 'all 0.2s' }}>
-              <Copy size={11} /> {copied ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
-          <code style={{ fontSize: '0.77rem', color: '#2997ff', fontFamily: 'monospace', wordBreak: 'break-all', display: 'block', lineHeight: 1.6 }}>{INSTALL_CMD}</code>
-        </div>
-
-        {/* Steps */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {steps.map(s => (
-            <div key={s.num} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-              <div style={{ minWidth: 28, height: 28, borderRadius: '50%', background: 'rgba(41,151,255,0.12)', border: '1px solid rgba(41,151,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800, color: '#2997ff', flexShrink: 0, marginTop: 2 }}>{s.num}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', marginBottom: 4 }}>{s.title}</div>
-                {s.body && <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{s.body}</div>}
-                {s.sub && s.sub.map((sub, i) => (
-                  <div key={i} style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', marginBottom: 3 }}>{sub.label}:</div>
-                    <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '7px 12px' }}>
-                      <code style={{ fontSize: '0.74rem', color: '#e5e5e5', fontFamily: 'monospace', wordBreak: 'break-all' }}>{sub.code}</code>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* PM2 commands reference */}
-        <div style={{ marginTop: 24, padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12 }}>
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: 10 }}>Useful PM2 Commands</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            {[
-              ['View logs',    'pm2 logs storachain-provider'],
-              ['Status',       'pm2 status'],
-              ['Restart',      'pm2 restart storachain-provider'],
-              ['Stop',         'pm2 stop storachain-provider'],
-              ['Auto-startup', 'pm2 startup && pm2 save'],
-              ['Update agent', 'cd ~/storachain-agent && curl -fsSL https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent/agent.js -o agent.js && curl -fsSL https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent/src/registry.js -o src/registry.js && pm2 restart storachain-provider'],
-            ].map(([label, cmd], i) => (
-              <div key={i}>
-                <div style={{ fontSize: '0.64rem', color: 'rgba(255,255,255,0.25)', marginBottom: 2 }}>{label}</div>
-                <code style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{cmd}</code>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
 /* ── ProviderMonitorTab ─────────────────────────────────────────────────── */
 function ProviderMonitorTab() {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
-  const [showGuide, setShowGuide] = useState(false);
-
   const fetchOnline = async () => {
     setLoading(true); setError('');
     try {
@@ -632,14 +520,7 @@ function ProviderMonitorTab() {
         ))}
       </div>
 
-      {showGuide && <VpsSetupGuide onClose={() => setShowGuide(false)} />}
-
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
-        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={() => setShowGuide(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: 'rgba(41,151,255,0.08)', border: '1px solid rgba(41,151,255,0.25)', borderRadius: 9, color: '#2997ff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600 }}>
-          <BookOpen size={13}/> VPS Setup Guide
-        </motion.button>
         <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
           onClick={fetchOnline} disabled={loading}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600 }}>

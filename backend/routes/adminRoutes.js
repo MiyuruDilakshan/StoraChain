@@ -602,10 +602,10 @@ router.get('/providers/online', async (req, res) => {
         let latencyMs = null;
         let onlineSource = 'offline'; // 'ping' | 'heartbeat' | 'offline'
         const start = Date.now();
-        // A provider can only be truly "online" if it is active and not suspended.
-        // Even if the agent is running and sending heartbeats, an admin-deactivated
-        // or suspended provider must be shown as offline.
-        const isEligible = p.isActive && !p.isSuspended;
+        // A provider can only be truly "online" if it is active, not paused, and not suspended.
+        // Even if the agent is running and sending heartbeats, a manually paused,
+        // admin-deactivated, or suspended provider must be shown as offline.
+        const isEligible = p.isActive && !p.isPaused && !p.isSuspended;
         if (isEligible) {
           try {
             await axios.get(`${p.agentUrl}/health`, { timeout: 3000 });

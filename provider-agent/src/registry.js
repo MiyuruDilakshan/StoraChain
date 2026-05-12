@@ -137,6 +137,15 @@ async function sendHeartbeat({ backendUrl, jwt, storageManager, integrityMonitor
       }
     );
 
+    // ── Paused flag from dashboard toggle ───────────────────────────────────
+    if (res.data?.isPaused === true) {
+      // The provider toggled offline via the dashboard — log clearly.
+      // We do NOT exit or stop the agent; the backend already filters us out
+      // of chunk distribution. We keep sending heartbeats so the dashboard
+      // can show "last seen" and the provider can toggle back online.
+      console.log('[Agent] Node is PAUSED (toggled offline via dashboard). Not accepting new chunks.');
+    }
+
     // ── Dynamic Config Sync ──────────────────────────────────────────────────
     if (res.data?.config) {
       const { capacityGB, diskPath, walletAddress } = res.data.config;
