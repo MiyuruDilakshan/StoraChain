@@ -499,14 +499,14 @@ async function main() {
     const replicaChunks = fileRecord.chunks.filter(c => c.replicaProviderUrl);
     check('Primary chunk URLs exist', primaryChunks.length > 0);
     check(`Replica chunk URLs exist (replication active)`, replicaChunks.length > 0, `replica count=${replicaChunks.length}`);
-    if (primaryChunks.length > 0 && replicaChunks.length > 0) {
-      const primaryUrls = new Set(primaryChunks.map(c => c.providerUrl));
-      const replicaUrls = new Set(replicaChunks.map(c => c.replicaProviderUrl));
-      // At least one replica on a different provider
-      const differentReplica = [...replicaUrls].some(u => !primaryUrls.has(u));
-      check('Replica on different provider than primary', differentReplica || replicaUrls.size === 0);
-      INFO(`Primary providers: ${[...primaryUrls].join(', ')}`);
-      INFO(`Replica providers: ${[...replicaUrls].join(', ')}`);
+    if (replicaChunks.length > 0) {
+      // Each chunk's replica should be on a DIFFERENT URL than that chunk's own primary
+      const allReplicasDifferent = replicaChunks.every(c => c.replicaProviderUrl !== c.providerUrl);
+      check('Replica on different provider than its primary chunk', allReplicasDifferent);
+      const primaryUrls = [...new Set(primaryChunks.map(c => c.providerUrl))];
+      const replicaUrls = [...new Set(replicaChunks.map(c => c.replicaProviderUrl))];
+      INFO(`Primary providers: ${primaryUrls.join(', ')}`);
+      INFO(`Replica providers: ${replicaUrls.join(', ')}`);
     }
   }
 
