@@ -663,4 +663,60 @@ router.get('/providers/online', async (req, res) => {
   }
 });
 
+// ─── GET /api/admin/provider-earnings ────────────────────────────────────
+// Returns per-provider earnings summary including totalEarnings + recent transactions
+router.get('/provider-earnings', async (req, res) => {
+  try {
+    const listings = await StorageListing.find()
+      .populate('providerId', 'name email walletAddress')
+      .sort({ totalEarnings: -1 });
+
+    // Aggregate reward transactions per provider
+    const rewardTxAgg = await Transaction.aggregate([
+      { $match: { type: 'reward', status: 'completed' } },
+      { $group: {
+        _id:           '$providerId',
+        txCount:       { $sum: 1 },
+        totalSCT:      { $sum: '$amountSCT' },
+        lastRewardAt:  { $max: '$createdAt' },
+      }},
+    ]);
+    const txMap = {};
+    rewardTxAgg.forEach(r => { if (r._id) txMap[String(r._id)] = r; });
+
+    const earningsSummary = listings.map(p => {
+      const uid = String(p.providerId?._id || p.providerId || '');
+      const tx  = txMap[uid] || {};
+      return {
+        providerId:      uid,
+        providerName:    p.providerId?.name || 'Unknown',
+        providerEmail:   p.providerId?.email || '',
+        walletAddress:   p.walletAddress || p.providerId?.walletAddress || '',
+        agentUrl:        p.agentUrl || '',
+        region:          p.region || 'local',
+        capacityGB:      p.capacityGB || 0,
+        usedGB:          p.usedGB    || 0,
+        uptimePct:       p.uptimePct || 0,
+        isActive:        p.isActive  || false,
+        isPaused:        p.isPaused  || false,
+        isSuspended:     p.isSuspended || false,
+        totalEarnings:   p.totalEarnings || 0,   // from listing (reward cycle increments)
+        txTotalSCT:      tx.totalSCT   || 0,     // from Transaction records
+        txCount:         tx.txCount    || 0,
+        lastRewardedAt:  p.lastRewardedAt || null,
+        lastTxRewardAt:  tx.lastRewardAt || null,
+      };
+    });
+
+    res.json({
+      count:     earningsSummary.length,
+      totalSCT:  parseFloat(earningsSummary.reduce((s, e) => s + e.totalEarnings, 0).toFixed(4)),
+      earnings:  earningsSummary,
+    });
+  } catch (err) {
+    console.error('[Admin] Provider earnings error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

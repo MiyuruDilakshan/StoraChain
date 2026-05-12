@@ -97,8 +97,12 @@ router.get('/overview', authMiddleware, async (req, res) => {
     if (role === 'provider') {
       const listing = await StorageListing.findOne({ providerId: userId });
 
-      // Earnings from storage transactions
-      const transactions = await Transaction.find({ sellerId: userId, status: 'completed' });
+      // Earnings from storage rewards and marketplace sales
+      // Reward transactions use providerId; marketplace sales use sellerId
+      const transactions = await Transaction.find({
+        $or: [{ sellerId: userId }, { providerId: userId }],
+        status: 'completed',
+      });
       const tokensEarned  = transactions.reduce((a, t) => a + (t.amountSCT || 0), 0);
       const fiatEarnedUSD = (transactions.reduce((a, t) => a + (t.amountUSDCents || 0), 0) / 100).toFixed(2);
 
@@ -157,6 +161,7 @@ router.get('/overview', authMiddleware, async (req, res) => {
         uptimePct:      listing?.uptimePct   || 0,
         latencyMs:      listing?.latencyMs   || 0,
         pricePerGB:     listing?.pricePerGB  || 0,
+        totalEarnings:  listing?.totalEarnings || 0,   // cumulative from reward cycles
         tokensEarned,
         fiatEarnedUSD,
         totalWithdrawn,

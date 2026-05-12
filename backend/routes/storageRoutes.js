@@ -12,6 +12,7 @@ const PendingChunk = require('../models/PendingChunk');
 const { shardBuffer, reassembleChunks } = require('../services/fileService');
 const { pinBuffer } = require('../services/pinataService');
 const { rewardProvider } = require('../services/tokenService');
+const Transaction = require('../models/Transaction');
 const encryptionService = require('../services/encryptionService');
 const scoringService = require('../services/scoringService');
 const cloudBackupService = require('../services/cloudBackupService');
@@ -205,12 +206,30 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
         }
       }
 
-      // Reward providers non-blocking
+      // Reward providers non-blocking — mint SCT + record Transaction so earnings show in analytics
       if (primaryOk && primary.walletAddress) {
-        rewardProvider(primary.walletAddress, 10).catch(() => {});
+        rewardProvider(primary.walletAddress, 10)
+          .then(txHash => {
+            Transaction.create({
+              type: 'reward', paymentMethod: 'reward', status: 'completed',
+              providerId:    primary.providerId,
+              providerWallet: primary.walletAddress,
+              amountSCT: 10, txHash: txHash || '',
+            }).catch(() => {});
+            StorageListing.findByIdAndUpdate(primary._id, { $inc: { totalEarnings: 10 } }).catch(() => {});
+          }).catch(() => {});
       }
       if (replicaOk && replica.walletAddress) {
-        rewardProvider(replica.walletAddress, 5).catch(() => {});
+        rewardProvider(replica.walletAddress, 5)
+          .then(txHash => {
+            Transaction.create({
+              type: 'reward', paymentMethod: 'reward', status: 'completed',
+              providerId:    replica.providerId,
+              providerWallet: replica.walletAddress,
+              amountSCT: 5, txHash: txHash || '',
+            }).catch(() => {});
+            StorageListing.findByIdAndUpdate(replica._id, { $inc: { totalEarnings: 5 } }).catch(() => {});
+          }).catch(() => {});
       }
 
       chunkMeta.push({

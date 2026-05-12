@@ -311,28 +311,40 @@ async function main() {
   // ── 12. Provider Earnings ─────────────────────────────────────────────
   HEAD('12. Provider Earnings');
   try {
-    // Get ProviderEarning records via admin
     const { data: adminProviders } = await get('/admin/providers/online', adminToken);
     const activeProviders = (adminProviders.providers || []).filter(p => p.isOnline);
     check('Some providers are online', activeProviders.length > 0, `online=${activeProviders.length}`);
 
-    // Check earnings via ProviderEarning model
+    // Trigger a reward cycle to ensure providers have earnings recorded
     try {
-      const { data: earningsData } = await get('/admin/provider-earnings', adminToken);
-      if (Array.isArray(earningsData)) {
-        check('Admin can view provider earnings', earningsData.length >= 0);
-        INFO(`Total earning records: ${earningsData.length}`);
-        if (earningsData.length > 0) {
-          INFO(`Sample earning: wallet=${earningsData[0].walletAddress} amount=${earningsData[0].amountSCT}`);
-        }
-      } else {
-        INFO('Provider earnings endpoint not available (non-critical)');
-      }
+      const { data: cycleResult } = await post('/admin/reward-cycle', {}, adminToken);
+      check('Reward cycle triggered successfully', !!cycleResult, cycleResult?.message);
+      INFO(`Reward cycle: ${cycleResult?.results?.length || 0} providers processed, total=${cycleResult?.totalMinted || 0} SCT`);
+      // Log per-provider result
+      (cycleResult?.results || []).forEach(r => {
+        INFO(`  Provider ${String(r.provider).slice(-6)}: ${r.rewardSCT} SCT (${r.status}) wallet=${(r.wallet||'').slice(0,12)}...`);
+      });
     } catch(e2) {
-      INFO(`Admin earnings endpoint: ${e2.response?.status || e2.message} (may not exist)`);
+      INFO(`Reward cycle: ${e2.response?.data?.message || e2.message}`);
     }
 
-    // Check chunks distribution on file - providers that have chunks should have earned
+    // Now check the provider-earnings admin endpoint (just added)
+    try {
+      const { data: earningsData } = await get('/admin/provider-earnings', adminToken);
+      check('Admin provider-earnings endpoint works', typeof earningsData === 'object' && Array.isArray(earningsData.earnings));
+      check('Provider earnings has count', typeof earningsData.count === 'number');
+      check('Provider earnings has totalSCT', typeof earningsData.totalSCT === 'number');
+      INFO(`Provider earnings: ${earningsData.count} providers, total=${earningsData.totalSCT} SCT`);
+      // Log a sample
+      if (earningsData.earnings?.length > 0) {
+        const sample = earningsData.earnings[0];
+        INFO(`  Sample: ${sample.providerEmail || sample.agentUrl} | totalEarnings=${sample.totalEarnings} | txSCT=${sample.txTotalSCT} | txCount=${sample.txCount}`);
+      }
+    } catch(e2) {
+      check('Admin provider-earnings endpoint works', false, e2.response?.data || e2.message);
+    }
+
+    // Check chunks distribution on file
     if (fileRecord?.chunks?.length) {
       const uniqueProviderUrls = [...new Set(fileRecord.chunks.map(c => c.providerUrl).filter(Boolean))];
       check('File was distributed to providers', uniqueProviderUrls.length > 0);
@@ -380,10 +392,11 @@ async function main() {
     check('Provider analytics returns role=provider', provAnalytics.role === 'provider');
     check('Provider analytics has capacityGB', typeof provAnalytics.capacityGB === 'number');
     check('Provider analytics has tokensEarned', typeof provAnalytics.tokensEarned === 'number');
+    check('Provider analytics has totalEarnings', typeof provAnalytics.totalEarnings === 'number');
     check('Provider analytics has earningsPerDay array', Array.isArray(provAnalytics.earningsPerDay));
     check('Provider analytics has utilisationHistory array', Array.isArray(provAnalytics.utilisationHistory));
     check('Provider analytics has transactionCount', typeof provAnalytics.transactionCount === 'number');
-    INFO(`Provider analytics: capacityGB=${provAnalytics.capacityGB} tokensEarned=${provAnalytics.tokensEarned} txCount=${provAnalytics.transactionCount}`);
+    INFO(`Provider analytics: capacityGB=${provAnalytics.capacityGB} tokensEarned=${provAnalytics.tokensEarned} totalEarnings=${provAnalytics.totalEarnings} txCount=${provAnalytics.transactionCount}`);
   } catch(e) { check('Provider analytics', false, e.response?.data || e.message); }
 
   // ── 14. Marketplace ───────────────────────────────────────────────────
