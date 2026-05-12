@@ -13,10 +13,15 @@ router.post('/register', authMiddleware, async (req, res) => {
   // pricePerGB is intentionally ignored — the system determines pricing via AI
   const { walletAddress, agentUrl, capacityGB, region, hardware } = req.body;
   
-  // Capture IP address automatically
-  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress || req.ip;
+  // Capture and clean the provider's public IP address
+  // x-forwarded-for can be a comma-separated list (client, proxy1, proxy2…) — take first entry
+  // Also strip IPv4-mapped IPv6 prefix (::ffff:) added by some reverse proxies
+  let rawIp = (req.headers['x-forwarded-for'] || req.connection?.remoteAddress || req.socket?.remoteAddress || req.ip || '').toString();
+  if (rawIp.includes(',')) rawIp = rawIp.split(',')[0].trim();
+  rawIp = rawIp.replace(/^::ffff:/, '').trim();
+  const cleanIp = rawIp || null;
   if (hardware) {
-    hardware.ip = ip;
+    hardware.ip = cleanIp;
   }
 
   if (!agentUrl || capacityGB === undefined) {

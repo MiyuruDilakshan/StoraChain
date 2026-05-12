@@ -602,19 +602,25 @@ router.get('/providers/online', async (req, res) => {
         let latencyMs = null;
         let onlineSource = 'offline'; // 'ping' | 'heartbeat' | 'offline'
         const start = Date.now();
-        try {
-          await axios.get(`${p.agentUrl}/health`, { timeout: 3000 });
-          isOnline = true;
-          latencyMs = Date.now() - start;
-          onlineSource = 'ping';
-        } catch {
-          // HTTP ping failed — fall back to heartbeat-based detection
-          if (p.lastHeartbeatAt) {
-            const msSinceHeartbeat = Date.now() - new Date(p.lastHeartbeatAt).getTime();
-            if (msSinceHeartbeat <= HEARTBEAT_ONLINE_THRESHOLD_MS) {
-              isOnline = true;
-              onlineSource = 'heartbeat';
-              latencyMs = null; // can't measure latency without direct ping
+        // A provider can only be truly "online" if it is active and not suspended.
+        // Even if the agent is running and sending heartbeats, an admin-deactivated
+        // or suspended provider must be shown as offline.
+        const isEligible = p.isActive && !p.isSuspended;
+        if (isEligible) {
+          try {
+            await axios.get(`${p.agentUrl}/health`, { timeout: 3000 });
+            isOnline = true;
+            latencyMs = Date.now() - start;
+            onlineSource = 'ping';
+          } catch {
+            // HTTP ping failed — fall back to heartbeat-based detection
+            if (p.lastHeartbeatAt) {
+              const msSinceHeartbeat = Date.now() - new Date(p.lastHeartbeatAt).getTime();
+              if (msSinceHeartbeat <= HEARTBEAT_ONLINE_THRESHOLD_MS) {
+                isOnline = true;
+                onlineSource = 'heartbeat';
+                latencyMs = null; // can't measure latency without direct ping
+              }
             }
           }
         }
