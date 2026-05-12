@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import api from '../../api/client';
 
-// eslint-disable-next-line no-unused-vars
 async function downloadFile(fileId, fileName) {
   const token = localStorage.getItem('token');
   const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/storage/download/${fileId}`, {
@@ -62,11 +61,27 @@ const menuBtn = { width: '100%', display: 'flex', alignItems: 'center', gap: 8, 
 
 /* ── Buy Modal ────────────────────────────────────────────────────────── */
 function BuyModal({ listing, user, onClose, onSuccess }) {
-  const [step,    setStep]    = useState('idle');
-  const [method,  setMethod]  = useState('token');
-  const [txHash,  setTxHash]  = useState('');
-  const [errMsg,  setErrMsg]  = useState('');
-  const [fileId,  setFileId]  = useState(null); // eslint-disable-line no-unused-vars
+  const [step,        setStep]        = useState('idle');
+  const [method,      setMethod]      = useState('token');
+  const [txHash,      setTxHash]      = useState('');
+  const [errMsg,      setErrMsg]      = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [dlErr,       setDlErr]       = useState('');
+
+  const fileRecordId = listing.fileRecordId?._id || listing.fileRecordId;
+  const fileName     = listing.fileRecordId?.fileName || listing.title;
+
+  const handleDownload = async () => {
+    if (!fileRecordId) return;
+    setDownloading(true); setDlErr('');
+    try {
+      await downloadFile(fileRecordId, fileName);
+    } catch (e) {
+      setDlErr(e.message || 'Download failed');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const priceUSD = (listing.priceUSDCents || 0) / 100;
   const priceSCT = listing.priceSCT || 0;
@@ -88,19 +103,15 @@ function BuyModal({ listing, user, onClose, onSuccess }) {
         res = await api.post('/marketplace/purchase', { listingId: listing._id });
         setTxHash(res.data.txHash || '');
       }
-      setFileId(res.data.fileRecordId || null);
-      setStep('success');
-      onSuccess?.();
+      setStep('success'); onSuccess?.();
     } catch (e) {
-      setErrMsg(e.response?.data?.message || 'Purchase failed');
-      setStep('error');
+      setStep('error'); setErrMsg(e.response?.data?.error || e.message || 'Purchase failed');
     }
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        style={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 22, padding: '28px 30px', width: '100%', maxWidth: 460 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} style={{ width: '100%', maxWidth: 440, background: 'linear-gradient(145deg,#0d0d1a,#0a0a16)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '28px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h2 style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>Buy Access</h2>
           {step === 'idle' || step === 'error' ? (
@@ -174,10 +185,11 @@ function BuyModal({ listing, user, onClose, onSuccess }) {
           <div style={{ padding: '16px', background: 'rgba(48,209,88,0.06)', border: '1px solid rgba(48,209,88,0.2)', borderRadius: 12, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <CheckCircle size={18} color="#30d158" />
-              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#30d158' }}>Purchase Successful!</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#30d158' }}>Access Granted!</span>
             </div>
-            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>File access has been granted. Check "Shared With Me" in My Files.</div>
+            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>You can download the file now or find it under "Shared With Me" in My Files.</div>
             {txHash && <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.73rem', color: '#2997ff', textDecoration: 'none', display: 'block', marginTop: 6 }}>Tx: {txHash.slice(0,20)}…</a>}
+            {dlErr && <div style={{ marginTop: 6, fontSize: '0.73rem', color: '#ff375f' }}>{dlErr}</div>}
           </div>
         )}
         {step === 'error' && (
@@ -190,9 +202,10 @@ function BuyModal({ listing, user, onClose, onSuccess }) {
         <div style={{ display: 'flex', gap: 10 }}>
           {step === 'success' ? (
             <>
-              <a href="/app/files" style={{ flex: 1, padding: '11px', background: 'rgba(48,209,88,0.12)', border: '1px solid rgba(48,209,88,0.35)', borderRadius: 10, color: '#30d158', textDecoration: 'none', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <Download size={14} /> My Files
-              </a>
+              <button onClick={handleDownload} disabled={downloading || !fileRecordId}
+                style={{ flex: 2, padding: '11px', background: 'rgba(48,209,88,0.15)', border: '1px solid rgba(48,209,88,0.4)', borderRadius: 10, color: '#30d158', cursor: downloading ? 'wait' : 'pointer', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                {downloading ? <><Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Downloading…</> : <><Download size={14} /> Download Now</>}
+              </button>
               <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Close</button>
             </>
           ) : step === 'error' ? (
@@ -388,7 +401,7 @@ function ListPanel({ myFiles, onClose, onCreated, onFileUploaded }) {
 }
 
 /* ── Listing Card ─────────────────────────────────────────────────────── */
-function ListingCard({ listing, onBuy, onDelete, onReport, onCopyLink, currentUserId, hasAccess }) {
+function ListingCard({ listing, onBuy, onDelete, onReport, onCopyLink, onDownload, currentUserId, hasAccess }) {
   const isMine  = listing.sellerId?._id === currentUserId || listing.sellerId === currentUserId;
   const cat     = listing.category || 'Data';
   const priceUSD = (listing.priceUSDCents || 0) / 100;
@@ -480,9 +493,9 @@ function ListingCard({ listing, onBuy, onDelete, onReport, onCopyLink, currentUs
             Remove Listing
           </button>
         ) : hasAccess ? (
-          <button onClick={() => { window.location.href = '/app/files'; }}
+          <button onClick={() => onDownload?.(listing)}
             style={{ width: '100%', padding: '10px', background: 'rgba(48,209,88,0.12)', border: '1px solid rgba(48,209,88,0.3)', borderRadius: 9, color: '#30d158', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <CheckCircle size={13} /> Access Granted
+            <Download size={13} /> Download
           </button>
         ) : (
           <button onClick={() => onBuy(listing)}
@@ -500,7 +513,7 @@ function StatsBar({ total, listings }) {
   const totalRevSCT = listings.reduce((a, l) => a + (l.priceSCT || 0) * (l.downloads || 0), 0);
   const freeCount   = listings.filter(l => !l.priceSCT && !l.priceUSDCents).length;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10, marginBottom: 20 }}>
       {[
         { label: 'Total Listings', value: total, icon: <ShoppingBag size={14} color="#2997ff" />, color: '#2997ff' },
         { label: 'Free Files',     value: freeCount, icon: <Globe size={14} color="#30d158" />,   color: '#30d158' },
@@ -649,7 +662,7 @@ export default function Marketplace({ user }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 10 }}>
             {featured.map(listing => (
-              <motion.div key={listing._id} whileHover={{ y: -2 }} style={{ background: 'rgba(255,159,10,0.04)', border: '1px solid rgba(255,159,10,0.15)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setBuyTarget(listing)}>
+              <motion.div key={listing._id} whileHover={{ y: -2 }} style={{ background: 'rgba(255,159,10,0.04)', border: '1px solid rgba(255,159,10,0.15)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => ownedListingIds.has(String(listing._id)) ? downloadFile(listing.fileRecordId?._id || listing.fileRecordId, listing.fileRecordId?.fileName || listing.title).catch(() => {}) : setBuyTarget(listing)}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{mimeIcon(listing.mimeType || '', 20)}</div>
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{listing.title}</div>
@@ -729,7 +742,7 @@ export default function Marketplace({ user }) {
           <AnimatePresence>
             {listings.map((listing, i) => (
               <motion.div key={listing._id} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ delay: i * 0.04 }}>
-                <ListingCard listing={listing} onBuy={setBuyTarget} onDelete={handleDelete} onReport={handleReport} onCopyLink={handleCopyLink} currentUserId={user?._id} hasAccess={ownedListingIds.has(String(listing._id))} />
+                <ListingCard listing={listing} onBuy={setBuyTarget} onDelete={handleDelete} onReport={handleReport} onCopyLink={handleCopyLink} onDownload={l => downloadFile(l.fileRecordId?._id || l.fileRecordId, l.fileRecordId?.fileName || l.title).catch(() => {})} currentUserId={user?._id} hasAccess={ownedListingIds.has(String(listing._id))} />
               </motion.div>
             ))}
           </AnimatePresence>

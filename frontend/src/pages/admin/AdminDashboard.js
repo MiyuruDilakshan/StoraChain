@@ -81,7 +81,7 @@ function OverviewTab({ onRunCycle, cycleRunning, cycleDone, onRunReplication, re
   const critical = files.filter(f => f.chunkHealth === 'critical').length;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 }}>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '26px 28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
@@ -307,6 +307,9 @@ function UsersTab({ users, onUpdateUser, onDeleteUser }) {
         <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', marginLeft: 'auto' }}>{filtered.length} users</span>
       </div>
 
+      {/* Table — scrollable on mobile */}
+      <div style={{ overflowX: 'auto' }}>
+      <div style={{ minWidth: 660 }}>
       {/* Table header */}
       <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 80px', gap: 8, alignItems: 'center' }}>
         {['User', 'Role', 'Plan', 'SCT', 'USD', 'Status', 'Actions'].map((h, i) => (
@@ -359,6 +362,8 @@ function UsersTab({ users, onUpdateUser, onDeleteUser }) {
           </div>
         </div>
       )}
+      </div>{/* minWidth wrapper */}
+      </div>{/* overflowX scroll wrapper */}
 
       {/* Edit modal */}
       {editUser && (
@@ -386,6 +391,8 @@ function ProvidersTab({ providers, onStatusChange }) {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, overflow: 'hidden' }}>
+      <div style={{ overflowX: 'auto' }}>
+      <div style={{ minWidth: 680 }}>
       <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.2fr 1fr 1fr 1fr 100px', gap: 8 }}>
         {['Provider', 'Region', 'Storage', 'Uptime', 'Total SCT', 'Status', 'Actions'].map((h, i) => (
           <div key={i} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)' }}>{h}</div>
@@ -478,6 +485,8 @@ function ProvidersTab({ providers, onStatusChange }) {
           </React.Fragment>
         );
       })}
+      </div>{/* minWidth wrapper */}
+      </div>{/* overflowX scroll wrapper */}
     </motion.div>
   );
 }

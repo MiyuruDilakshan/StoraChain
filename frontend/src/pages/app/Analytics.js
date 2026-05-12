@@ -128,7 +128,7 @@ export default function Analytics({ user }) {
                 <StatCard label="Marketplace"    value={stats?.purchases ?? 0}               icon={<TrendingUp size={18} color="#30d158" />} accent="#30d158" sub="Items purchased" />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
                 {/* Uploads per day */}
                 <ChartCard icon={<BarChart2 size={15} color="#2997ff" />} title="Uploads (last 30 days)">
                   {stats?.uploadsPerDay?.length > 0 ? (
@@ -210,7 +210,7 @@ export default function Analytics({ user }) {
                 <StatCard label="Node Uptime"   value={`${stats?.uptimePct ?? 100}%`}      icon={<Activity   size={18} color="#bf5af2" />} accent="#bf5af2" sub={stats?.isOnline ? 'Currently online' : 'Offline'} />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
                 {/* Earnings per day */}
                 <ChartCard icon={<BarChart2 size={15} color="#30d158" />} title="Earnings per Day (SCT)">
                   {stats?.earningsPerDay?.length > 0 ? (

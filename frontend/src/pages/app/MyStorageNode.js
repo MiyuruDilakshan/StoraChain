@@ -337,7 +337,7 @@ export default function MyStorageNode({ user }) {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 12, marginBottom: 24 }}>
           {[
             { n: '1', label: 'Run Installer', desc: 'windows-setup.bat or linux-setup.sh', color: '#bf5af2' },
             { n: '2', label: 'Select Disk', desc: 'Choose storage & set GB amount', color: '#2997ff' },

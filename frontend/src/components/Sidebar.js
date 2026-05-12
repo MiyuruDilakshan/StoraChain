@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FolderOpen, Upload,
   ShoppingBag, BarChart2, Wallet, Terminal,
   User, HardDrive, LogOut, Coins, ShieldAlert, CreditCard,
-  Shield, HelpCircle,
+  Shield, HelpCircle, X,
 } from 'lucide-react';
 
 const W = 224;
@@ -45,7 +45,7 @@ const adminNav = [
 ];
 
 /* ── component ──────────────────────────────────── */
-export default function Sidebar({ user }) {
+export default function Sidebar({ user, isMobile, isOpen, onClose }) {
   const navigate   = useNavigate();
   const role       = user?.role || 'seeker';
   const isProvider = role === 'provider';
@@ -88,16 +88,26 @@ export default function Sidebar({ user }) {
   );
 
   return (
+    <>
+      {/* Mobile backdrop */}
+      {isMobile && isOpen && (
+        <div onClick={onClose} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 190,
+        }} />
+      )}
     <div style={{
       position: 'fixed', top: 0, left: 0, bottom: 0, width: W,
       background: '#050505', borderRight: '1px solid rgba(255,255,255,0.07)',
       display: 'flex', flexDirection: 'column', zIndex: 200,
       fontFamily: 'Inter, sans-serif',
+      transform: isMobile ? (isOpen ? 'translateX(0)' : 'translateX(-100%)') : 'translateX(0)',
+      transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
     }}>
-      {/* Logo */}
+      {/* Logo + close button */}
       <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}
-          onClick={() => navigate(homeRoute)}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', flex: 1 }}
+          onClick={() => { navigate(homeRoute); onClose?.(); }}>
           <div style={{
             width: 30, height: 30, borderRadius: 8,
             background: 'linear-gradient(135deg,#bf5af2,#2997ff)',
@@ -108,6 +118,13 @@ export default function Sidebar({ user }) {
           <span style={{ fontSize: '0.95rem', fontWeight: 800, letterSpacing: '-0.03em', color: '#fff' }}>
             StoraChain
           </span>
+        </div>
+        {/* Mobile close button */}
+        {isMobile && (
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}>
+            <X size={18} />
+          </button>
+        )}
         </div>
       </div>
 
@@ -182,7 +199,7 @@ export default function Sidebar({ user }) {
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: '0 10px', overflowY: 'auto' }}>
-        {navItems.map(navLink)}
+        {navItems.map(item => React.cloneElement(navLink(item), { onClick: () => onClose?.() }))}
       </nav>
 
       {/* Logout */}
@@ -200,5 +217,6 @@ export default function Sidebar({ user }) {
         </button>
       </div>
     </div>
+    </>
   );
 }

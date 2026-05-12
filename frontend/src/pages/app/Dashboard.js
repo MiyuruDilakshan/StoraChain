@@ -477,7 +477,7 @@ export default function Dashboard({ user }) {
       </div>
 
       {/* Main content: recent activity + quick actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 14, position: 'relative', zIndex: 2 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14, position: 'relative', zIndex: 2 }}>
 
         {/* Recent files / activity */}
         <motion.div
