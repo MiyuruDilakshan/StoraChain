@@ -79,11 +79,26 @@ export default function MyStorageNode({ user }) {
   const fetchDisks = async () => {
     setDiskLoading(true); setDiskError('');
     try {
-      const { data } = await api.get('/providers/disk-info');
-      setDisks(data.disks || []);
-      if (!selectedDisk && data.disks?.length > 0) {
-        setSelectedDisk(data.disks[0].mountpoint);
-        setForm(f=>({...f, diskPath: data.disks[0].mountpoint}));
+      // Try calling the local agent directly first (avoids VPS→local NAT/firewall issues)
+      let disks = null;
+      try {
+        const agentPort = node?.agentUrl?.match(/:(\d+)$/)?.[1] || '3001';
+        const directRes = await fetch(`http://localhost:${agentPort}/disk-info`);
+        if (directRes.ok) {
+          const json = await directRes.json();
+          disks = json.disks;
+        }
+      } catch { /* agent not reachable directly, fall back to backend proxy */ }
+
+      if (!disks) {
+        const { data } = await api.get('/providers/disk-info');
+        disks = data.disks || [];
+      }
+
+      setDisks(disks || []);
+      if (!selectedDisk && disks?.length > 0) {
+        setSelectedDisk(disks[0].mountpoint);
+        setForm(f=>({...f, diskPath: disks[0].mountpoint}));
       }
     } catch (e) {
       setDiskError(e.response?.data?.message || 'Agent not running. Start the StoraChain agent first.');

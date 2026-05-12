@@ -11,6 +11,24 @@ const express = require('express');
 module.exports = function createAgentServer(storageManager, agentKey) {
   const app = express();
 
+  // Allow browser on storachain.miyuru.dev (and localhost dev) to call agent directly
+  app.use((req, res, next) => {
+    const origin = req.headers.origin || '';
+    const allowed = [
+      'https://storachain.miyuru.dev',
+      'https://www.storachain.miyuru.dev',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ];
+    if (allowed.includes(origin) || origin.endsWith('.vercel.app')) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,x-agent-key');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
   // Accept raw binary bodies (for chunk uploads) and JSON
   app.use(express.raw({ limit: '100mb', type: 'application/octet-stream' }));
   app.use(express.json());
