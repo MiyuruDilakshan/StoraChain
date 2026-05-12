@@ -6,7 +6,7 @@ import {
   CheckCircle, XCircle, AlertCircle, Shield,
   FileText, ShoppingBag, Trash2, Edit3,
   Search, Eye, BarChart2, Wifi, WifiOff,
-  ShieldAlert, Flag, Terminal, Copy, BookOpen, ChevronRight,
+  ShieldAlert, Flag, Terminal, Copy, BookOpen,
 } from 'lucide-react';
 import api from '../../api/client';
 
