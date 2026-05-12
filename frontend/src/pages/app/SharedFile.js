@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Download, Lock, Globe, Link2, Shield, CheckCircle, AlertCircle,
   Loader, FileText, Image, Video, Music, Archive, Code, Copy,
   Coins, DollarSign, User, Calendar, HardDrive, Eye, ShoppingBag,
-  ExternalLink, X,
 } from 'lucide-react';
 import axios from 'axios';
 

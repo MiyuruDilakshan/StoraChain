@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HelpCircle, Book, Shield, Zap, Coins, HardDrive, RefreshCw, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp, Lock, Activity } from 'lucide-react';
+import { HelpCircle, Zap, Coins, HardDrive, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 
 function FAQItem({ q, a }) {
   const [open, setOpen] = useState(false);
@@ -134,7 +134,7 @@ export default function Help() {
         <div>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#ff375f', margin: '0 0 4px' }}>Technical Support</h3>
           <p style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-            Running into issues? Check our <a href="#" style={{ color: '#ff375f', textDecoration: 'none', fontWeight: 700 }}>Discord community</a> or contact <strong>support@storachain.io</strong> with your provider email and node region.
+            Running into issues? Check our <a href="https://discord.gg/storachain" rel="noopener noreferrer" style={{ color: '#ff375f', textDecoration: 'none', fontWeight: 700 }}>Discord community</a> or contact <strong>support@storachain.io</strong> with your provider email and node region.
           </p>
         </div>
       </motion.div>

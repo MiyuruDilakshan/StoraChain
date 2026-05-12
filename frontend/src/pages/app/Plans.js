@@ -194,7 +194,7 @@ export default function Plans({ user, refreshUser }) {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubscribe = async (planId, paymentMethod) => {
     const selectedPlan = plans.find((p) => p.id === planId);

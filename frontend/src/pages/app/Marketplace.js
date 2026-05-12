@@ -4,11 +4,12 @@ import {
   ShoppingBag, Plus, X, Coins, RefreshCw, Search, AlertCircle,
   CheckCircle, Loader, Image, Video, Music, FileText, Archive,
   Code, Filter, ChevronDown, Download, MoreVertical, Link2, Flag,
-  DollarSign, Eye, Globe, Lock, TrendingUp, Star, Tag, Copy,
-  Shield, Zap, Users,
+  DollarSign, Globe, TrendingUp, Star,
+  Shield, Users,
 } from 'lucide-react';
 import api from '../../api/client';
 
+// eslint-disable-next-line no-unused-vars
 async function downloadFile(fileId, fileName) {
   const token = localStorage.getItem('token');
   const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/storage/download/${fileId}`, {
@@ -65,11 +66,11 @@ function BuyModal({ listing, user, onClose, onSuccess }) {
   const [method,  setMethod]  = useState('token');
   const [txHash,  setTxHash]  = useState('');
   const [errMsg,  setErrMsg]  = useState('');
-  const [fileId,  setFileId]  = useState(null);
+  const [fileId,  setFileId]  = useState(null); // eslint-disable-line no-unused-vars
 
   const priceUSD = (listing.priceUSDCents || 0) / 100;
   const priceSCT = listing.priceSCT || 0;
-  const fee      = Math.floor(priceSCT * 0.05);
+  const fee      = Math.floor(priceSCT * 0.05); // eslint-disable-line no-unused-vars
   const hasUSD   = priceUSD > 0;
   const hasSCT   = priceSCT > 0;
 
@@ -529,7 +530,7 @@ export default function Marketplace({ user }) {
   const [showSort,  setShowSort]  = useState(false);
   const [toast,     setToast]     = useState('');
   const [toastErr,  setToastErr]  = useState(false);
-  const [copiedId,  setCopiedId]  = useState('');
+  const [copiedId,  setCopiedId]  = useState(''); // eslint-disable-line no-unused-vars
   const [ownedListingIds, setOwnedListingIds] = useState(new Set());
   const sortRef = useRef(null);
 

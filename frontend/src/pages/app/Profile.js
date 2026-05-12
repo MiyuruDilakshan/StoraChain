@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 
 const PLAN_COLORS = { free: '#30d158', basic: '#2997ff', pro: '#bf5af2', premium: '#ff9f0a' };
-const PLAN_LABELS = { free: 'Free', basic: 'Basic', pro: 'Pro', premium: 'Premium' };
+const PLAN_LABELS = { free: 'Free', basic: 'Basic', pro: 'Pro', premium: 'Premium' }; // eslint-disable-line no-unused-vars
 
 const AVATAR_COLORS = ['#bf5af2', '#2997ff', '#30d158', '#ff9f0a', '#ff375f', '#64d2ff'];
 

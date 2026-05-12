@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Server, HardDrive, Coins, Activity, Calendar,
   RefreshCw, ChevronDown, ChevronUp, ExternalLink,
   CheckCircle, XCircle, AlertCircle, Shield,
-  FileText, ShoppingBag, Settings, Trash2, Edit3,
-  Search, Filter, Eye, BarChart2, Wifi, WifiOff, Zap,
-  ShieldAlert, ShieldCheck, AlertTriangle, Clock, Flag,
+  FileText, ShoppingBag, Trash2, Edit3,
+  Search, Eye, BarChart2, Wifi, WifiOff,
+  ShieldAlert, Flag,
 } from 'lucide-react';
 import api from '../../api/client';
 

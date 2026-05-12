@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { HardDrive, CheckCircle, AlertCircle, RefreshCw, Wifi, Save, Info, Trash2, Shield, ShieldAlert, ShieldCheck, AlertTriangle, Clock } from 'lucide-react';
 import api from '../../api/client';
@@ -92,13 +92,13 @@ export default function MyStorageNode({ user }) {
   };
 
   useEffect(() => { fetchNode(); }, []);
-  useEffect(() => { if (node) { fetchDisks(); fetchIntegrity(); } }, [node?._id]);
+  useEffect(() => { if (node) { fetchDisks(); fetchIntegrity(); } }, [node?._id]); // eslint-disable-line react-hooks/exhaustive-deps
   // Re-poll integrity every 60 seconds
   useEffect(() => {
     if (!node) return;
     const timer = setInterval(fetchIntegrity, 60000);
     return () => clearInterval(timer);
-  }, [node?._id]);
+  }, [node?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDiskSelect = (disk) => {
     setSelectedDisk(disk.mountpoint);

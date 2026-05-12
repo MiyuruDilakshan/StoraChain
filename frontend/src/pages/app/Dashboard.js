@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  HardDrive, FolderOpen, ShoppingBag,
+  HardDrive, FolderOpen,
   Coins, Activity,
   TrendingUp, ArrowUpRight, Clock, Zap, CreditCard, DollarSign,
   AlertCircle, X, Terminal,
@@ -125,7 +125,7 @@ export default function Dashboard({ user }) {
           setProviderNode(null);
         });
     }
-  }, []);
+  }, [isProvider]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshProviderState = async () => {
     try {

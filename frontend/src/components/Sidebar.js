@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FolderOpen, Upload,
   ShoppingBag, BarChart2, Wallet, Terminal,
   User, HardDrive, LogOut, Coins, ShieldAlert, CreditCard,
-  Shield, Users, Server, Activity, Settings, HelpCircle,
+  Shield, HelpCircle,
 } from 'lucide-react';
 
 const W = 224;

@@ -55,7 +55,7 @@ export default function Landing() {
         </div>
         <div className="sc-nav-links">
           {[["How It Works","how"],["For Providers","providers"],["Marketplace","market"],["Pricing","pricing"]].map(([l,id])=>(
-            <a key={id} onClick={()=>scrollTo(id)}>{l}</a>
+            <a key={id} href={`#${id}`} onClick={(e)=>{e.preventDefault();scrollTo(id);}}>{l}</a>
           ))}
         </div>
         <div className="sc-nav-actions">
