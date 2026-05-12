@@ -78,10 +78,28 @@ function FAQ({ q, a }) {
   );
 }
 
+async function downloadFile(url, filename) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+  } catch (e) {
+    window.open(url, '_blank');
+  }
+}
+
 export default function ProviderInstructions() {
   const [active, setActive] = useState(null);
   const [node, setNode] = useState(null);
   const [osTab, setOsTab] = useState('windows');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     api.get('/providers/me').then((r) => setNode(r.data)).catch(() => setNode(null));
@@ -126,11 +144,10 @@ export default function ProviderInstructions() {
       {/* ── OS Download Tabs ─────────────────────────────────────────────── */}
       {(() => {
         const BASE = 'https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent/scripts';
-        const DL   = 'https://github.com/MiyuruDilakshan/StoraChain/raw/main/provider-agent/scripts';
         const tabs = [
           {
             id: 'windows', label: 'Windows', emoji: '🪟',
-            dlUrl:  `${DL}/windows-setup.bat`,
+            dlUrl:  `${BASE}/windows-setup.bat`,
             dlName: 'windows-setup.bat',
             cmd:    null,
             steps:  [
@@ -143,7 +160,7 @@ export default function ProviderInstructions() {
           },
           {
             id: 'linux', label: 'Linux', emoji: '🐧',
-            dlUrl:  `${DL}/linux-setup.sh`,
+            dlUrl:  `${BASE}/linux-setup.sh`,
             dlName: 'linux-setup.sh',
             cmd:    `curl -fsSL ${BASE}/linux-setup.sh | sudo bash`,
             steps:  [
@@ -155,7 +172,7 @@ export default function ProviderInstructions() {
           },
           {
             id: 'vps', label: 'VPS / Server', emoji: '🖥️',
-            dlUrl:  `${DL}/vps-setup.sh`,
+            dlUrl:  `${BASE}/vps-setup.sh`,
             dlName: 'vps-setup.sh',
             cmd:    `curl -fsSL ${BASE}/vps-setup.sh | sudo bash`,
             steps:  [
@@ -189,10 +206,16 @@ export default function ProviderInstructions() {
                 </div>
               )}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                <a href={t.dlUrl} download={t.dlName} target="_blank" rel="noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', background: 'rgba(41,151,255,0.15)', border: '1px solid rgba(41,151,255,0.4)', borderRadius: 11, color: '#2997ff', textDecoration: 'none', fontWeight: 700, fontSize: '0.88rem' }}>
-                  <Download size={14} /> Download {t.dlName}
-                </a>
+                <button
+                  disabled={downloading}
+                  onClick={async () => {
+                    setDownloading(true);
+                    await downloadFile(t.dlUrl, t.dlName);
+                    setDownloading(false);
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', background: 'rgba(41,151,255,0.15)', border: '1px solid rgba(41,151,255,0.4)', borderRadius: 11, color: '#2997ff', fontWeight: 700, fontSize: '0.88rem', cursor: downloading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: downloading ? 0.6 : 1 }}>
+                  <Download size={14} /> {downloading ? 'Downloading…' : `Download ${t.dlName}`}
+                </button>
                 <a href="https://sepolia.etherscan.io/address/0x11473Ca21047272a008f27E73161b258C8b62F45" target="_blank" rel="noreferrer"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 11, color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontWeight: 600, fontSize: '0.82rem' }}>
                   Smart Contract <ExternalLink size={11} />

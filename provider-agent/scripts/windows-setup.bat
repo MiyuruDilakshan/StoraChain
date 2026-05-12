@@ -27,7 +27,7 @@ if not exist "%AGENT_DEST%\src"     mkdir "%AGENT_DEST%\src"
 if not exist "%AGENT_DEST%\scripts" mkdir "%AGENT_DEST%\scripts"
 
 echo [3/4] Downloading agent files from GitHub...
-set "REPO=https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/tree/main/provider-agent"
+set "REPO=https://raw.githubusercontent.com/MiyuruDilakshan/StoraChain/main/provider-agent"
 powershell -Command "Invoke-WebRequest -Uri '%REPO%/agent.js'                -OutFile '%AGENT_DEST%\agent.js'                -UseBasicParsing"
 powershell -Command "Invoke-WebRequest -Uri '%REPO%/src/server.js'           -OutFile '%AGENT_DEST%\src\server.js'           -UseBasicParsing"
 powershell -Command "Invoke-WebRequest -Uri '%REPO%/src/storage.js'          -OutFile '%AGENT_DEST%\src\storage.js'          -UseBasicParsing"
