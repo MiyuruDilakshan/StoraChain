@@ -116,8 +116,8 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
       processing: buildProcessing('matchmaking', 28, 'AI matchmaking is selecting the best storage providers'),
     });
 
-    // 3. Score and rank active providers
-    const rawProviders = await StorageListing.find({ isActive: true });
+    // 3. Score and rank active, non-paused, non-suspended providers
+    const rawProviders = await StorageListing.find({ isActive: true, isSuspended: { $ne: true } });
     const rankedProviders = await scoringService.rankProviders(rawProviders);
     const uniqueByAgent = new Map();
     for (const provider of rankedProviders) {
