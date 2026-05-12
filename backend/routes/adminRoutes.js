@@ -455,6 +455,38 @@ router.put('/providers/:id/status', async (req, res) => {
   }
 });
 
+// ─── PUT /api/admin/providers/:id/reset-penalties ────────────────────────
+// Fully reset penalties, unsuspend and reactivate a provider listing
+router.put('/providers/:id/reset-penalties', async (req, res) => {
+  try {
+    const listing = await StorageListing.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          penaltyPoints:       0,
+          penaltyHistory:      [],
+          integrityViolations: [],
+          totalViolations:     0,
+          reputationScore:     100,
+          isSuspended:         false,
+          isPaused:            false,
+          isActive:            true,
+          suspensionReason:    '',
+          integrityHealthy:    true,
+        }
+      },
+      { new: true }
+    ).populate('providerId', 'name email');
+
+    if (!listing) return res.status(404).json({ message: 'Provider not found' });
+    console.log(`[Admin] Provider ${listing._id} penalties reset by admin ${req.user.id}`);
+    res.json({ message: 'Provider penalties reset and reactivated', listing });
+  } catch (err) {
+    console.error('[Admin] Provider reset-penalties error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ─── PATCH /api/admin/users/:id ──────────────────────────────────────────
 // Update user role, plan, balances, or status
 router.patch('/users/:id', async (req, res) => {
