@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FolderOpen, Upload,
   ShoppingBag, BarChart2, Wallet, Terminal,
   User, HardDrive, LogOut, Coins, ShieldAlert, CreditCard,
-  Shield, HelpCircle, X,
+  Shield, HelpCircle, X, Activity,
 } from 'lucide-react';
 
 const W = 224;
@@ -39,9 +39,10 @@ const providerNav = [
 
 /* Admin gets only admin-relevant links — NO user items */
 const adminNav = [
-  { to: '/admin',           icon: <Shield      size={17}/>, label: 'Admin Dashboard', end: true },
-  { to: '/app/marketplace', icon: <ShoppingBag size={17}/>, label: 'Marketplace'              },
-  { to: '/app/help',        icon: <HelpCircle  size={17}/>, label: 'Help & FAQ'              },
+  { to: '/admin',      icon: <Shield      size={17}/>, label: 'Admin Dashboard', end: true },
+  { to: '/admin/live', icon: <Activity    size={17}/>, label: 'Live Activity'             },
+  { to: '/app/marketplace', icon: <ShoppingBag size={17}/>, label: 'Marketplace'          },
+  { to: '/app/help',   icon: <HelpCircle  size={17}/>, label: 'Help & FAQ'               },
 ];
 
 /* ── component ──────────────────────────────────── */

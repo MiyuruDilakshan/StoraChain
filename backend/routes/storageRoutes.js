@@ -13,6 +13,7 @@ const { shardBuffer, reassembleChunks } = require('../services/fileService');
 const { pinBuffer } = require('../services/pinataService');
 const { rewardProvider } = require('../services/tokenService');
 const Transaction = require('../models/Transaction');
+const { logActivity } = require('../services/activityLogger');
 const encryptionService = require('../services/encryptionService');
 const scoringService = require('../services/scoringService');
 const cloudBackupService = require('../services/cloudBackupService');
@@ -86,6 +87,13 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     // 1. SHA-256 integrity hash of the original plaintext
     const sha256Hash = crypto.createHash('sha256').update(buffer).digest('hex');
 
+    logActivity('upload', `📁 Upload started: "${originalname}"`, {
+      fileId: null, fileName: originalname,
+      fileSize: `${(size / 1024).toFixed(1)} KB`,
+      mimeType: mimetype,
+      user: req.user.email || req.user.id,
+    });
+
     fileRecord = await FileRecord.create({
       userId:       req.user.id,
       walletAddress,
@@ -106,7 +114,13 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     }
 
     // 2. Encrypt with AES-256-GCM
+    logActivity('encrypt', `🔐 AES-256-GCM encryption started for "${originalname}"`, {
+      fileId: fileRecord._id.toString(), fileSize: `${(size / 1024).toFixed(1)} KB`,
+    });
     const { encryptedBuffer, encryptedKey, iv } = encryptionService.encrypt(buffer);
+    logActivity('encrypt', `✅ AES-256-GCM encryption complete — encrypted size: ${(encryptedBuffer.length / 1024).toFixed(1)} KB`, {
+      fileId: fileRecord._id.toString(), encryptedSize: `${(encryptedBuffer.length / 1024).toFixed(1)} KB`,
+    });
     await FileRecord.findByIdAndUpdate(fileRecord._id, {
       isEncrypted: true,
       encryptedKey,
@@ -118,6 +132,7 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     });
 
     // 3. Score and rank active, non-paused, non-suspended providers
+    logActivity('matchmake', `🤖 AI matchmaking — scanning active providers...`, { fileId: fileRecord._id.toString() });
     const rawProviders = await StorageListing.find({ isActive: true, isSuspended: { $ne: true } });
     const rankedProviders = await scoringService.rankProviders(rawProviders);
     const uniqueByAgent = new Map();
@@ -129,6 +144,13 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
       }
     }
     const providers = [...uniqueByAgent.values()];
+
+    logActivity('matchmake', `✅ AI matchmaking complete — ${providers.length} provider(s) ranked and selected`, {
+      fileId: fileRecord._id.toString(),
+      topProvider: providers[0]?.agentUrl,
+      topScore: providers[0]?.matchScore,
+      totalCandidates: providers.length,
+    });
 
     if (providers.length === 0) {
       await updateFileProcessing(fileRecord._id, 'failed', 100, 'No storage providers are currently available', 'failed', 'No storage providers available');
@@ -158,6 +180,12 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     // 4. Shard the encrypted buffer (up to 2 shards with at least 2 providers)
     const numShards = providers.length >= 2 ? 2 : 1;
     const chunks = shardBuffer(encryptedBuffer, numShards);
+    logActivity('chunk', `✂️ File split into ${chunks.length} encrypted chunk${chunks.length !== 1 ? 's' : ''}`, {
+      fileId: fileRecord._id.toString(),
+      chunkCount: chunks.length,
+      chunkIds: chunks.map(c => c.chunkId.slice(0, 8) + '…'),
+      totalEncryptedSize: `${(encryptedBuffer.length / 1024).toFixed(1)} KB`,
+    });
     await updateFileProcessing(fileRecord._id, 'storing', 58, `Uploading ${chunks.length} encrypted shard${chunks.length !== 1 ? 's' : ''} to provider storage`);
 
     // 5. Upload each chunk to primary + replica agent
@@ -185,6 +213,15 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
         }
       }
 
+      logActivity('provider', `📤 Uploading chunk ${i + 1}/${chunks.length} → Provider: ${primary.agentUrl.replace(/https?:\/\//, '')}`, {
+        fileId: fileRecord._id.toString(),
+        chunkId: chunkId.slice(0, 12) + '…',
+        chunkIndex: i,
+        providerUrl: primary.agentUrl,
+        chunkSize: `${(chunkBuffer.length / 1024).toFixed(1)} KB`,
+        replicaUrl: replica?.agentUrl || 'none',
+      });
+
       const primaryUpload = axios.post(`${primary.agentUrl}/chunk`, chunkBuffer, {
         headers: {
           'x-chunk-id':   chunkId,
@@ -210,6 +247,22 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
       const primaryOk = primaryResult.status === 'fulfilled';
       const replicaOk = replica && replicaResult.status === 'fulfilled';
 
+      if (primaryOk) {
+        logActivity('provider', `✅ Chunk ${i + 1} stored on primary provider (${primary.agentUrl.replace(/https?:\/\//, '')})`, {
+          chunkId: chunkId.slice(0, 12) + '…', providerUrl: primary.agentUrl, role: 'primary',
+        });
+      } else {
+        logActivity('error', `⚠️ Primary upload failed for chunk ${i + 1} — queued for pull`, {
+          chunkId: chunkId.slice(0, 12) + '…', providerUrl: primary.agentUrl,
+          error: primaryResult.reason?.message,
+        });
+      }
+      if (replicaOk) {
+        logActivity('replica', `🔁 Chunk ${i + 1} replicated → ${replica.agentUrl.replace(/https?:\/\//, '')}`, {
+          chunkId: chunkId.slice(0, 12) + '…', replicaUrl: replica.agentUrl, role: 'replica',
+        });
+      }
+
       if (!primaryOk) {
         console.warn(`[Storage] Primary upload failed for chunk ${chunkId}: ${primaryResult.reason?.message}`);
         // Queue for agent to pull (handles home-PC NAT / firewall)
@@ -225,6 +278,10 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
       if (primaryOk && primary.walletAddress) {
         rewardProvider(primary.walletAddress, 10)
           .then(txHash => {
+            logActivity('reward', `🪙 10 SCT reward sent to primary provider`, {
+              wallet: primary.walletAddress.slice(0, 10) + '…',
+              amount: '10 SCT', role: 'primary', txHash: txHash ? txHash.slice(0, 16) + '…' : '',
+            });
             Transaction.create({
               type: 'reward', paymentMethod: 'reward', status: 'completed',
               providerId:    primary.providerId,
@@ -237,6 +294,10 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
       if (replicaOk && replica.walletAddress) {
         rewardProvider(replica.walletAddress, 5)
           .then(txHash => {
+            logActivity('reward', `🪙 5 SCT reward sent to replica provider`, {
+              wallet: replica.walletAddress.slice(0, 10) + '…',
+              amount: '5 SCT', role: 'replica', txHash: txHash ? txHash.slice(0, 16) + '…' : '',
+            });
             Transaction.create({
               type: 'reward', paymentMethod: 'reward', status: 'completed',
               providerId:    replica.providerId,
@@ -331,9 +392,15 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
       // IPFS pin — full encrypted file (Tier-3 fallback for download)
       let finalCid = '';
       try {
+        logActivity('ipfs', `📌 Pinning full encrypted file to Pinata/IPFS...`, {
+          fileId: fileRecord._id.toString(), fileName: originalname,
+        });
         await updateFileProcessing(fileRecord._id, 'pinata_backup', 78, 'Backing up the encrypted full file to Pinata');
         finalCid = await pinBuffer(encryptedBuffer, originalname + '.enc');
         await FileRecord.findByIdAndUpdate(fileRecord._id, { ipfsCid: finalCid });
+        logActivity('ipfs', `✅ Full file pinned to IPFS — CID: ${finalCid.slice(0, 20)}…`, {
+          fileId: fileRecord._id.toString(), cid: finalCid,
+        });
         console.log(`[Storage] IPFS full-file backup complete: ${finalCid}`);
       } catch (e) {
         console.warn('[Storage] IPFS full-file pin failed:', e.message);
@@ -348,6 +415,9 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
           try {
             const chunkCid = await pinBuffer(chunks[ci].buffer, `chunk_${chunkMeta[ci].chunkId}.enc`);
             updatedChunks[ci] = { ...updatedChunks[ci], ipfsCid: chunkCid };
+            logActivity('ipfs', `📌 Chunk ${ci + 1} pinned to IPFS — CID: ${chunkCid.slice(0, 16)}…`, {
+              chunkIndex: ci, chunkId: chunkMeta[ci].chunkId.slice(0, 12) + '…', cid: chunkCid,
+            });
             console.log(`[Storage] Chunk ${ci} pinned to IPFS: ${chunkCid}`);
           } catch (e2) {
             console.warn(`[Storage] Chunk ${ci} IPFS pin failed (non-critical):`, e2.message);
@@ -371,10 +441,14 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
 
       // Cloud backup (stub — no-op until April 30)
       try {
+        logActivity('s3', `☁️ Writing encrypted disaster-recovery backup to AWS S3...`, {
+          fileId: fileRecord._id.toString(), fileName: originalname,
+        });
         await updateFileProcessing(fileRecord._id, 'cloud_backup', 88, 'Writing encrypted disaster-recovery backup to S3');
         const cloudPath = await cloudBackupService.upload(encryptedBuffer, fileRecord.fileName || originalname, fileRecord._id.toString());
         if (cloudPath) {
           await FileRecord.findByIdAndUpdate(fileRecord._id, { cloudBackupPath: cloudPath });
+          logActivity('s3', `✅ AWS S3 backup complete`, { fileId: fileRecord._id.toString(), path: cloudPath });
           console.log(`[Storage] Cloud backup complete: ${cloudPath}`);
         }
       } catch (e) {
@@ -383,6 +457,11 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
 
       // On-chain registration via StoraChainStorage.storeFile
       try {
+        logActivity('chain', `⛓️ Recording file metadata on Sepolia blockchain...`, {
+          fileId: fileRecord._id.toString(), sha256: sha256Hash.slice(0, 16) + '…',
+          seekerWallet: seekerWallet ? seekerWallet.slice(0, 10) + '…' : 'none',
+          providerCount: providerWallets.length,
+        });
         await updateFileProcessing(fileRecord._id, 'blockchain', 96, 'Recording storage placement and backup metadata on-chain');
         const txHash = await blockchainService.storeFile(
           sha256Hash,
@@ -393,6 +472,9 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
         );
         if (txHash) {
           await FileRecord.findByIdAndUpdate(fileRecord._id, { onChainTxHash: txHash, txHash });
+          logActivity('chain', `✅ On-chain registration confirmed — TX: ${txHash.slice(0, 18)}…`, {
+            fileId: fileRecord._id.toString(), txHash, network: 'Sepolia',
+          });
           console.log(`[Blockchain] File registered on-chain: ${txHash}`);
         }
       } catch (e) {
@@ -400,6 +482,11 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
       }
 
       await updateFileProcessing(fileRecord._id, 'completed', 100, 'Upload completed. Retrieval will prefer providers, then replica, then Pinata, then S3.', 'completed');
+      logActivity('upload', `🎉 Upload pipeline complete for "${originalname}"`, {
+        fileId: fileRecord._id.toString(),
+        fileName: originalname,
+        stages: 'encrypt → shard → provider → replica → IPFS → S3 → blockchain',
+      });
     });
 
   } catch (err) {
@@ -514,6 +601,13 @@ router.get('/download/:fileId', authMiddleware, async (req, res) => {
 
     const sortedChunks = [...fileRecord.chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
     const fileLabel = `[Download][${fileRecord.fileName}]`;
+    logActivity('download', `⬇️ Download requested: "${fileRecord.fileName}"`, {
+      fileId: fileRecord._id.toString(),
+      fileName: fileRecord.fileName,
+      fileSize: `${(fileRecord.fileSize / 1024).toFixed(1)} KB`,
+      user: req.user.email || req.user.id,
+      chunkCount: sortedChunks.length,
+    });
     console.log(`${fileLabel} Starting retrieval. Chunks: ${sortedChunks.length}, Tiers: provider → replica → chunk-IPFS → full-IPFS → S3`);
 
     // ── Tier 1, 2 & 3(per-chunk): fetch each chunk independently ─────────
@@ -577,6 +671,10 @@ router.get('/download/:fileId', authMiddleware, async (req, res) => {
       encryptedBuffer = chunkBuffers.length === 1
         ? chunkBuffers[0]
         : reassembleChunks(chunkBuffers);
+      logActivity('download', `✅ ${chunkBuffers.length} chunk(s) retrieved via ${tierUsed} — reassembling...`, {
+        chunkCount: chunkBuffers.length, tier: tierUsed,
+        totalSize: `${(encryptedBuffer.length / 1024).toFixed(1)} KB`,
+      });
       console.log(`${fileLabel} ✅ Reassembled ${chunkBuffers.length} chunk(s) from ${tierUsed} tier. Size: ${encryptedBuffer.length} bytes`);
     } else {
       const failedCount = chunkBuffers.filter(b => b === null).length;
@@ -632,9 +730,17 @@ router.get('/download/:fileId', authMiddleware, async (req, res) => {
       const t0 = Date.now();
       const actualHash = crypto.createHash('sha256').update(outputBuffer).digest('hex');
       if (actualHash !== fileRecord.sha256Hash) {
+        logActivity('error', `❌ SHA-256 integrity check FAILED for "${fileRecord.fileName}"`, {
+          fileId: fileRecord._id.toString(), expected: fileRecord.sha256Hash.slice(0, 16) + '…',
+          actual: actualHash.slice(0, 16) + '…',
+        });
         console.error(`${fileLabel} ❌ Integrity check FAILED — hash mismatch (tier: ${tierUsed})`);
         return res.status(500).json({ message: 'File integrity check failed — data may be corrupted' });
       }
+      logActivity('download', `✅ SHA-256 integrity verified — serving "${fileRecord.fileName}" to user`, {
+        fileId: fileRecord._id.toString(), tier: tierUsed,
+        plainSize: `${(outputBuffer.length / 1024).toFixed(1)} KB`,
+      });
       console.log(`${fileLabel} ✅ SHA-256 integrity verified in ${Date.now()-t0}ms (tier: ${tierUsed})`);
     }
 

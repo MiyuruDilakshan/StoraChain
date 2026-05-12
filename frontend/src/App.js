@@ -33,6 +33,7 @@ import SharedFile from './pages/app/SharedFile';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
+import LiveActivity   from './pages/admin/LiveActivity';
 
 function AppRoute({ element }) {
   return <AppLayout>{element}</AppLayout>;
@@ -86,6 +87,7 @@ function App() {
 
         {/* Admin — protected by role guard, wrapped in AppLayout */}
         <Route path="/admin" element={<AdminRoute element={<AppRoute element={<AdminDashboard />} />} />} />
+        <Route path="/admin/live" element={<AdminRoute element={<AppRoute element={<LiveActivity />} />} />} />
 
         {/* Public shared file — no auth required */}
         <Route path="/share/:shareToken" element={<SharedFile />} />

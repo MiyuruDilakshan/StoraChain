@@ -719,4 +719,20 @@ router.get('/provider-earnings', async (req, res) => {
   }
 });
 
+const { logActivity, registerSSEClient, getRecentLogs } = require('../services/activityLogger');
+
+// ─── GET /api/admin/activity/stream ────────────────────────────────────────
+// Server-Sent Events stream — real-time activity log for admin Live View
+router.get('/activity/stream', authMiddleware, adminOnly, (req, res) => {
+  registerSSEClient(res);
+});
+
+// ─── GET /api/admin/activity/recent ────────────────────────────────────────
+// Returns the last N log entries as JSON (for initial page load polling fallback)
+router.get('/activity/recent', authMiddleware, adminOnly, (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 100, 300);
+  const logs = getRecentLogs().slice(-limit).reverse();
+  res.json({ logs });
+});
+
 module.exports = router;
