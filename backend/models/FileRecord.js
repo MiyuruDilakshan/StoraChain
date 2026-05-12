@@ -12,6 +12,7 @@ const ChunkSchema = new mongoose.Schema({
   providerScore: { type: Number, default: 0 },
   replicaScore: { type: Number, default: 0 },
   size:              Number,   // bytes
+  ipfsCid:           { type: String, default: '' }, // per-chunk IPFS CID (Tier-3a recovery)
 });
 
 const ProcessingSchema = new mongoose.Schema({

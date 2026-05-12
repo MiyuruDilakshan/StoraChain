@@ -160,15 +160,30 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     const chunks = shardBuffer(encryptedBuffer, numShards);
     await updateFileProcessing(fileRecord._id, 'storing', 58, `Uploading ${chunks.length} encrypted shard${chunks.length !== 1 ? 's' : ''} to provider storage`);
 
-    // 5. Upload each chunk to primary + replica agent in parallel
+    // 5. Upload each chunk to primary + replica agent
+    //    Selection strategy: spread across MAX unique providers.
+    //    For N chunks: primary[i] = providers[i], replica[i] = providers[N + i]
+    //    This ensures no provider holds two different roles for different chunks
+    //    (with 6 providers + 2 chunks: p0→chunk0-primary, p1→chunk1-primary,
+    //     p2→chunk0-replica, p3→chunk1-replica — 4 unique providers used).
     const chunkMeta = [];
     for (let i = 0; i < chunks.length; i++) {
       const { chunkId, buffer: chunkBuffer } = chunks[i];
       const primary = providers[i % providers.length];
-      const replicaCandidate = providers[(i + 1) % providers.length];
-      const replica = replicaCandidate && replicaCandidate.agentUrl !== primary.agentUrl
-        ? replicaCandidate
-        : null;
+
+      // Pick replica from a DIFFERENT pool (offset by numShards) so primaries and replicas never overlap
+      let replica = null;
+      for (let offset = 1; offset <= providers.length; offset++) {
+        const candidate = providers[(i + offset) % providers.length];
+        if (candidate.agentUrl !== primary.agentUrl) {
+          // Also avoid re-using any provider already assigned as a primary in this batch
+          const alreadyPrimary = chunkMeta.some(cm => cm.providerUrl === candidate.agentUrl);
+          if (!alreadyPrimary || providers.length <= chunks.length) {
+            replica = candidate;
+            break;
+          }
+        }
+      }
 
       const primaryUpload = axios.post(`${primary.agentUrl}/chunk`, chunkBuffer, {
         headers: {
@@ -244,7 +259,10 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
         providerScore: Number((primary.matchScore ?? scoringService.scoreLocally(primary)).toFixed(4)),
         replicaScore: replicaOk ? Number((replica.matchScore ?? scoringService.scoreLocally(replica)).toFixed(4)) : 0,
         size:              chunkBuffer.length,
+        ipfsCid: '',  // filled in background after per-chunk IPFS pin
       });
+
+      console.log(`[Storage] Chunk ${i} → primary=${primary.agentUrl} replica=${replicaOk ? replica.agentUrl : 'none'} (${(chunkBuffer.length/1024).toFixed(0)} KB)`);
 
       await updateFileProcessing(
         fileRecord._id,
@@ -310,15 +328,34 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
         } catch { /* ignore */ }
       }
 
-      // IPFS pin
+      // IPFS pin — full encrypted file (Tier-3 fallback for download)
       let finalCid = '';
       try {
         await updateFileProcessing(fileRecord._id, 'pinata_backup', 78, 'Backing up the encrypted full file to Pinata');
         finalCid = await pinBuffer(encryptedBuffer, originalname + '.enc');
         await FileRecord.findByIdAndUpdate(fileRecord._id, { ipfsCid: finalCid });
-        console.log(`[Storage] IPFS backup complete: ${finalCid}`);
+        console.log(`[Storage] IPFS full-file backup complete: ${finalCid}`);
       } catch (e) {
-        console.warn('[Storage] IPFS pin failed:', e.message);
+        console.warn('[Storage] IPFS full-file pin failed:', e.message);
+      }
+
+      // Pin each individual chunk to IPFS for per-chunk Tier-3 recovery
+      // This enables: if 1 provider + its replica are both offline, only THAT chunk
+      // is fetched from IPFS (not the whole file), saving bandwidth.
+      try {
+        const updatedChunks = [...chunkMeta];
+        for (let ci = 0; ci < chunks.length; ci++) {
+          try {
+            const chunkCid = await pinBuffer(chunks[ci].buffer, `chunk_${chunkMeta[ci].chunkId}.enc`);
+            updatedChunks[ci] = { ...updatedChunks[ci], ipfsCid: chunkCid };
+            console.log(`[Storage] Chunk ${ci} pinned to IPFS: ${chunkCid}`);
+          } catch (e2) {
+            console.warn(`[Storage] Chunk ${ci} IPFS pin failed (non-critical):`, e2.message);
+          }
+        }
+        await FileRecord.findByIdAndUpdate(fileRecord._id, { chunks: updatedChunks });
+      } catch (e) {
+        console.warn('[Storage] Per-chunk IPFS pin step failed:', e.message);
       }
 
       // Pin preview thumbnail to Pinata (unencrypted — it is not sensitive)
@@ -477,9 +514,9 @@ router.get('/download/:fileId', authMiddleware, async (req, res) => {
 
     const sortedChunks = [...fileRecord.chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
     const fileLabel = `[Download][${fileRecord.fileName}]`;
-    console.log(`${fileLabel} Starting retrieval. Chunks: ${sortedChunks.length}, Tiers: provider → replica → IPFS → S3`);
+    console.log(`${fileLabel} Starting retrieval. Chunks: ${sortedChunks.length}, Tiers: provider → replica → chunk-IPFS → full-IPFS → S3`);
 
-    // ── Tier 1 & 2: fetch each chunk from primary then replica agent ──────
+    // ── Tier 1, 2 & 3(per-chunk): fetch each chunk independently ─────────
     let tierUsed = 'provider';
     const chunkBuffers = await Promise.all(sortedChunks.map(async (chunk, idx) => {
       // Tier 1: primary provider
@@ -515,7 +552,22 @@ router.get('/download/:fileId', authMiddleware, async (req, res) => {
         }
       }
 
-      return null;
+      // Tier 3a: per-chunk IPFS CID (most efficient — only fetches this one chunk)
+      if (chunk.ipfsCid) {
+        try {
+          const t0 = Date.now();
+          const r = await axios.get(`https://gateway.pinata.cloud/ipfs/${chunk.ipfsCid}`, {
+            responseType: 'arraybuffer', timeout: 30000,
+          });
+          console.log(`${fileLabel} Chunk ${idx} ← Tier-3a chunk-IPFS (${chunk.ipfsCid}) in ${Date.now()-t0}ms`);
+          tierUsed = 'IPFS-chunk';
+          return Buffer.from(r.data);
+        } catch (e) {
+          console.warn(`${fileLabel} Chunk ${idx} Tier-3a chunk-IPFS FAILED: ${e.message}`);
+        }
+      }
+
+      return null; // will trigger full-file fallback
     }));
 
     let encryptedBuffer = null;
@@ -528,29 +580,29 @@ router.get('/download/:fileId', authMiddleware, async (req, res) => {
       console.log(`${fileLabel} ✅ Reassembled ${chunkBuffers.length} chunk(s) from ${tierUsed} tier. Size: ${encryptedBuffer.length} bytes`);
     } else {
       const failedCount = chunkBuffers.filter(b => b === null).length;
-      console.warn(`${fileLabel} ⚠️  ${failedCount}/${sortedChunks.length} chunks unavailable from providers. Falling back...`);
+      console.warn(`${fileLabel} ⚠️  ${failedCount}/${sortedChunks.length} chunks unavailable from providers/replicas/chunk-IPFS. Falling back to full-file...`);
 
-      // Tier 3: full-file IPFS fallback
+      // Tier 3b: full-file IPFS fallback (when per-chunk IPFS also failed / not yet pinned)
       if (fileRecord.ipfsCid) {
         try {
           const t0 = Date.now();
-          console.log(`${fileLabel} Tier-3: fetching encrypted file from IPFS CID ${fileRecord.ipfsCid}`);
+          console.log(`${fileLabel} Tier-3b: fetching full encrypted file from IPFS CID ${fileRecord.ipfsCid}`);
           const ipfsRes = await axios.get(
             `https://gateway.pinata.cloud/ipfs/${fileRecord.ipfsCid}`,
             { responseType: 'arraybuffer', timeout: 60000 }
           );
           encryptedBuffer = Buffer.from(ipfsRes.data);
-          tierUsed = 'IPFS';
-          console.log(`${fileLabel} ✅ Tier-3 IPFS succeeded in ${Date.now()-t0}ms. Size: ${encryptedBuffer.length} bytes`);
+          tierUsed = 'IPFS-full';
+          console.log(`${fileLabel} ✅ Tier-3b IPFS full-file succeeded in ${Date.now()-t0}ms. Size: ${encryptedBuffer.length} bytes`);
         } catch (e) {
-          console.warn(`${fileLabel} Tier-3 IPFS FAILED: ${e.message}`);
+          console.warn(`${fileLabel} Tier-3b IPFS full-file FAILED: ${e.message}`);
         }
       }
 
       // Tier 4: cloud S3 fallback
       if (!encryptedBuffer && fileRecord.cloudBackupPath) {
         const t0 = Date.now();
-        console.log(`${fileLabel} Tier-4: fetching from S3 backup ${fileRecord.cloudBackupPath}`);
+        console.log(`${fileLabel} Tier-4: fetching full encrypted file from S3 backup ${fileRecord.cloudBackupPath}`);
         encryptedBuffer = await cloudBackupService.download(fileRecord.cloudBackupPath);
         tierUsed = 'S3';
         console.log(`${fileLabel} ✅ Tier-4 S3 succeeded in ${Date.now()-t0}ms. Size: ${encryptedBuffer?.length} bytes`);
