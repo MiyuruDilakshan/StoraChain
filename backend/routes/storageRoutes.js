@@ -38,10 +38,9 @@ async function updateFileProcessing(fileId, stage, progressPct, detail = '', sta
   });
 }
 
-// Store uploads in memory (max 50 MB per file)
+// No file size limit — chunked streaming handles large files
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
 const AGENT_KEY = process.env.BACKEND_AGENT_KEY || 'agent-secret-key';

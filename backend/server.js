@@ -15,17 +15,6 @@ connectDB();
 
 const app = express();
 
-// Rate limiting — 100 requests per 15 minutes per IP (skip for localhost in dev)
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  skip: (req) => process.env.NODE_ENV !== 'production' &&
-    (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1'),
-});
-app.use(limiter);
-
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:19006',
@@ -37,6 +26,8 @@ const allowedOrigins = [
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 ];
 
+// CORS must be first — before rate limiter and body parsers — so that error
+// responses (413, 429, etc.) still carry the Access-Control-Allow-Origin header.
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (server-to-server, curl, etc.)
@@ -50,6 +41,19 @@ app.use(cors({
   allowedHeaders: ['Content-Type','Authorization'],
   credentials: true,
 }));
+
+// Rate limiting — 100 requests per 15 minutes per IP (skip for localhost in dev)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  skip: (req) => process.env.NODE_ENV !== 'production' &&
+    (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1'),
+});
+app.use(limiter);
+
+// No body-size limit on JSON/urlencoded — large files go through multipart/multer
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 
 app.get("/", (req, res) => {
   res.send("StoraChain API Running");
