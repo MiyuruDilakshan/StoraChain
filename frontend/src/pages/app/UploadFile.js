@@ -337,7 +337,6 @@ export default function UploadFile({ user }) {
 
   const pickFile = useCallback((picked) => {
     if (!picked) return;
-    if (picked.size > 50 * 1024 * 1024) { setError('Maximum file size is 50 MB'); return; }
     setFile(picked); setError('');
   }, []);
 
@@ -473,7 +472,7 @@ export default function UploadFile({ user }) {
             <div style={{ fontSize: '1rem', fontWeight: 700, color: dragging ? '#2997ff' : 'rgba(255,255,255,0.7)', marginBottom: 5 }}>
               {dragging ? 'Drop to upload' : 'Drag and drop your file here'}
             </div>
-            <div style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.25)' }}>or click to browse — max 50 MB</div>
+            <div style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.25)' }}>or click to browse — no size limit</div>
           </motion.div>
           <input id="fileInput" type="file" style={{ display: 'none' }} onChange={e => pickFile(e.target.files[0])} />
         </motion.div>
