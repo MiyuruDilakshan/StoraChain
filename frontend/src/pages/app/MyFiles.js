@@ -536,7 +536,7 @@ export default function MyFiles({ user }) {
   const [showSort,       setShowSort]       = useState(false);
   const [showFilter,     setShowFilter]     = useState(false);
   const [delId,          setDelId]          = useState(null);
-  const [dlLoading,      setDlLoading]      = useState({}); // eslint-disable-line no-unused-vars
+  const [dlLoading,      setDlLoading]      = useState({});
   const [toast,          setToast]          = useState('');
   const [toastErr,       setToastErr]       = useState(false);
   const [previewFile,    setPreviewFile]    = useState(null);
@@ -571,19 +571,15 @@ export default function MyFiles({ user }) {
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
   useEffect(() => { if (activeSection === 'shared' && shared.length === 0) fetchShared(); }, [activeSection]); // eslint-disable-line
 
-  const handleDownload = (fileId, fileName) => {
-    // Use direct browser navigation instead of XHR/fetch to avoid ad blocker ERR_BLOCKED_BY_CLIENT.
-    // The auth middleware accepts ?token= query param so no Authorization header is needed.
-    const token = localStorage.getItem('token');
-    const base = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
-    const url = `${base}/storage/download/${fileId}?token=${encodeURIComponent(token)}&dl=${encodeURIComponent(fileName)}`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleDownload = async (fileId, fileName) => {
+    setDlLoading(p => ({ ...p, [fileId]: true }));
+    try {
+      const res = await api.get(`/storage/download/${fileId}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
+      window.URL.revokeObjectURL(url);
+    } catch { showToast('Download failed — provider may be offline. Try IPFS link.', true); }
+    finally { setDlLoading(p => ({ ...p, [fileId]: false })); }
   };
 
   const handleDelete = async (fileId) => {
@@ -684,7 +680,6 @@ export default function MyFiles({ user }) {
     );
     return (
       <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}><div style={{ minWidth: 560 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '3fr 80px 90px 110px 160px', padding: '11px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           {['Name','Size','Shards','Modified','Actions'].map((h, i) => (
             <div key={i} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>{h}</div>
@@ -693,7 +688,6 @@ export default function MyFiles({ user }) {
         <AnimatePresence>
           {list.map(file => <FileRow key={file._id} {...itemProps(file)} />)}
         </AnimatePresence>
-        </div></div>
       </div>
     );
   };
@@ -915,7 +909,6 @@ export default function MyFiles({ user }) {
         {/* ══ SHARED WITH ME ══ */}
         {activeSection === 'shared' && (
           <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}><div style={{ minWidth: 500 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr 1fr 100px', padding: '11px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               {['File','From','Access','Granted','Action'].map((h, i) => (
                 <div key={i} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>{h}</div>
@@ -971,7 +964,6 @@ export default function MyFiles({ user }) {
                 </motion.div>
               );
             })}
-            </div></div>{/* overflow wrappers close */}
           </div>
         )}
 
