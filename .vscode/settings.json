@@ -1,8 +1,0 @@
-{
-    "chat.tools.terminal.autoApprove": {
-        "/^cd \"D:\\\\Final year project\\\\StoraChain\\\\smart-contracts\" ; npm pkg set type=\"module\"$/": {
-            "approve": true,
-            "matchCommandLine": true
-        }
-    }
-}
