@@ -536,7 +536,7 @@ export default function MyFiles({ user }) {
   const [showSort,       setShowSort]       = useState(false);
   const [showFilter,     setShowFilter]     = useState(false);
   const [delId,          setDelId]          = useState(null);
-  const [dlLoading,      setDlLoading]      = useState({});
+  const [dlLoading,      setDlLoading]      = useState({}); // eslint-disable-line no-unused-vars
   const [toast,          setToast]          = useState('');
   const [toastErr,       setToastErr]       = useState(false);
   const [previewFile,    setPreviewFile]    = useState(null);
@@ -571,15 +571,19 @@ export default function MyFiles({ user }) {
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
   useEffect(() => { if (activeSection === 'shared' && shared.length === 0) fetchShared(); }, [activeSection]); // eslint-disable-line
 
-  const handleDownload = async (fileId, fileName) => {
-    setDlLoading(p => ({ ...p, [fileId]: true }));
-    try {
-      const res = await api.get(`/storage/download/${fileId}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
-      window.URL.revokeObjectURL(url);
-    } catch { showToast('Download failed — provider may be offline. Try IPFS link.', true); }
-    finally { setDlLoading(p => ({ ...p, [fileId]: false })); }
+  const handleDownload = (fileId, fileName) => {
+    // Use direct browser navigation instead of XHR/fetch to avoid ad blocker ERR_BLOCKED_BY_CLIENT.
+    // The auth middleware accepts ?token= query param so no Authorization header is needed.
+    const token = localStorage.getItem('token');
+    const base = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
+    const url = `${base}/storage/download/${fileId}?token=${encodeURIComponent(token)}&dl=${encodeURIComponent(fileName)}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const handleDelete = async (fileId) => {
