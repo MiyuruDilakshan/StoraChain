@@ -112,7 +112,8 @@ module.exports = function createAgentServer(storageManager, agentKey) {
       const fs = require('fs');
       const path = require('path');
       const envPath = path.join(process.cwd(), '.env');
-      
+
+      // Persist to .env so settings survive restart
       if (fs.existsSync(envPath)) {
         let envContent = fs.readFileSync(envPath, 'utf8');
         if (capacityGB !== undefined) envContent = envContent.replace(/^SPACE_GB=.*$/m, `SPACE_GB=${capacityGB}`);
@@ -120,6 +121,12 @@ module.exports = function createAgentServer(storageManager, agentKey) {
         if (walletAddress !== undefined) envContent = envContent.replace(/^WALLET_ADDRESS=.*$/m, `WALLET_ADDRESS=${walletAddress}`);
         fs.writeFileSync(envPath, envContent);
       }
+
+      // Apply capacity change immediately in the running process (no restart needed)
+      if (capacityGB !== undefined) {
+        storageManager.resize(capacityGB);
+      }
+
       res.json({ success: true, message: 'Agent configuration updated.' });
     } catch (err) {
       res.status(500).json({ message: err.message });

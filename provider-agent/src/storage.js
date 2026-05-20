@@ -204,6 +204,13 @@ class StorageManager {
     this._rebalanceReserve();
   }
 
+  /** Update the provider's allocated capacity and immediately rebalance the reservation file. */
+  resize(newCapacityGB) {
+    this.maxCapacityBytes = Math.max(0, Math.floor(newCapacityGB * 1024 * 1024 * 1024));
+    this._rebalanceReserve();
+    console.log('[Agent] Resized capacity to', newCapacityGB, 'GB');
+  }
+
   releaseReservation() {
     if (IS_WINDOWS && fs.existsSync(this.reserveFile)) {
       spawnSync('attrib', ['-r', '-s', '-h', this.reserveFile], { stdio: 'ignore', windowsHide: true });

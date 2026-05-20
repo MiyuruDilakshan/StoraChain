@@ -264,7 +264,7 @@ router.put('/update', authMiddleware, async (req, res) => {
           diskPath,
           walletAddress
         }, {
-          headers: { 'Authorization': `Bearer ${process.env.BACKEND_AGENT_KEY || 'agent-secret-key'}` },
+          headers: { 'x-agent-key': process.env.BACKEND_AGENT_KEY || 'agent-secret-key' },
           timeout: 5000
         });
       } catch (e) {

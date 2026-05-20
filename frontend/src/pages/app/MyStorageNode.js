@@ -262,6 +262,22 @@ export default function MyStorageNode({ user }) {
         diskPath:      form.diskPath || undefined,
       });
       setNode(data);
+
+      // Also push config directly to the local agent — backend can't reach local port 3001
+      // through NAT when the provider is running on the same PC as the browser.
+      try {
+        const agentPort = (data.agentUrl || node?.agentUrl || '').match(/:(\d+)$/)?.[1] || '3001';
+        await fetch(`http://localhost:${agentPort}/update-config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-agent-key': 'agent-secret-key' },
+          body: JSON.stringify({
+            capacityGB: cap,
+            diskPath:      form.diskPath || undefined,
+            walletAddress: form.walletAddress.trim() || undefined,
+          }),
+        });
+      } catch { /* agent not local or not yet running — VPS agents are handled by the backend proxy */ }
+
       showMsg('Node settings saved successfully!');
     } catch (e) {
       showMsg('Failed to save settings', true);
@@ -296,10 +312,28 @@ export default function MyStorageNode({ user }) {
       addLog('Initiating uninstall process...');
       await new Promise(r => setTimeout(r, 800));
       addLog('Contacting background agent...');
+
+      // Try to call local agent directly first — backend can't reach local port 3001 through NAT.
+      // This cleans up reservation file, vault, and chunks on the provider's own machine.
+      const agentPort = (node?.agentUrl || '').match(/:(\d+)$/)?.[1] || '3001';
+      let localFreedBytes = 0;
+      try {
+        const localRes = await fetch(`http://localhost:${agentPort}/uninstall`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-agent-key': 'agent-secret-key' },
+        });
+        if (localRes.ok) {
+          const localData = await localRes.json();
+          localFreedBytes = localData.releasedBytes || 0;
+          addLog('Local agent stopped and storage cleaned up.');
+        }
+      } catch { /* not a local agent — VPS agents are handled by the backend proxy call below */ }
+
       const { data } = await api.post('/providers/uninstall');
       addLog('Agent stopped and chunks deleted.');
       await new Promise(r => setTimeout(r, 800));
-      const freedGB = ((data.agentData?.releasedBytes || 0) / (1024 ** 3)).toFixed(2);
+      const freedBytes = localFreedBytes || data.agentData?.releasedBytes || 0;
+      const freedGB = (freedBytes / (1024 ** 3)).toFixed(2);
       addLog(`Freed ${freedGB} GB of reserved disk storage.`);
       await new Promise(r => setTimeout(r, 800));
       addLog('PM2 background process terminated.');
