@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const _BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API = _BASE.endsWith('/api') ? _BASE : `${_BASE}/api`;
 
 function fmt(b) {
   if (!b) return '—';

@@ -206,7 +206,7 @@ class StorageManager {
 
   releaseReservation() {
     if (IS_WINDOWS && fs.existsSync(this.reserveFile)) {
-      spawnSync('attrib', ['-r', this.reserveFile], { stdio: 'ignore', windowsHide: true });
+      spawnSync('attrib', ['-r', '-s', '-h', this.reserveFile], { stdio: 'ignore', windowsHide: true });
     }
     try { fs.rmSync(this.reserveFile, { force: true }); } catch { /* ignore */ }
   }
@@ -257,7 +257,7 @@ class StorageManager {
 
     try {
       if (IS_WINDOWS && fs.existsSync(this.reserveFile)) {
-        spawnSync('attrib', ['-r', this.reserveFile], { stdio: 'ignore', windowsHide: true });
+        spawnSync('attrib', ['-r', '-s', '-h', this.reserveFile], { stdio: 'ignore', windowsHide: true });
       }
 
       // Create the file if it doesn't exist (truncateSync requires the file to pre-exist)

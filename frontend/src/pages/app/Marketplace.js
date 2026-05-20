@@ -105,7 +105,7 @@ function BuyModal({ listing, user, onClose, onSuccess }) {
       }
       setStep('success'); onSuccess?.();
     } catch (e) {
-      setStep('error'); setErrMsg(e.response?.data?.error || e.message || 'Purchase failed');
+      setStep('error'); setErrMsg(e.response?.data?.message || e.response?.data?.error || e.message || 'Purchase failed');
     }
   };
 
@@ -402,7 +402,7 @@ function ListPanel({ myFiles, onClose, onCreated, onFileUploaded }) {
 
 /* ── Listing Card ─────────────────────────────────────────────────────── */
 function ListingCard({ listing, onBuy, onDelete, onReport, onCopyLink, onDownload, currentUserId, hasAccess }) {
-  const isMine  = listing.sellerId?._id === currentUserId || listing.sellerId === currentUserId;
+  const isMine  = String(listing.sellerId?._id || listing.sellerId) === String(currentUserId);
   const cat     = listing.category || 'Data';
   const priceUSD = (listing.priceUSDCents || 0) / 100;
   const priceSCT = listing.priceSCT || 0;

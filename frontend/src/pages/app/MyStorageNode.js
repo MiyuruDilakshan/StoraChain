@@ -192,14 +192,20 @@ export default function MyStorageNode({ user }) {
   const fetchDisks = async () => {
     setDiskLoading(true); setDiskError('');
     try {
-      // Try calling the local agent directly first (avoids VPS→local NAT/firewall issues)
+      // Try calling the local agent directly first — ONLY for local agents (localhost/127.0.0.1).
+      // For VPS providers the agentUrl points to a remote IP; calling localhost would hit the
+      // browser machine (not the VPS), causing ERR_CONNECTION_REFUSED.
       let disks = null;
       try {
-        const agentPort = node?.agentUrl?.match(/:(\d+)$/)?.[1] || '3001';
-        const directRes = await fetch(`http://localhost:${agentPort}/disk-info`);
-        if (directRes.ok) {
-          const json = await directRes.json();
-          disks = json.disks;
+        const agentHost = node?.agentUrl?.match(/https?:\/\/([^:/]+)/)?.[1] || '';
+        const isLocal = agentHost === 'localhost' || agentHost === '127.0.0.1';
+        if (isLocal) {
+          const agentPort = node?.agentUrl?.match(/:(\/d+)$/)?.[1] || '3001';
+          const directRes = await fetch(`http://localhost:${agentPort}/disk-info`);
+          if (directRes.ok) {
+            const json = await directRes.json();
+            disks = json.disks;
+          }
         }
       } catch { /* agent not reachable directly, fall back to backend proxy */ }
 

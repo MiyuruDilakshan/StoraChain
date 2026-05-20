@@ -157,9 +157,9 @@ module.exports = function createAgentServer(storageManager, agentKey) {
   app.post('/uninstall', verifyAgentKey, (req, res) => {
     try {
       const deletedChunks = storageManager.listChunks().length;
-      storageManager.wipeAllChunks();
-      storageManager.releaseReservation();
-      res.json({ success: true, deletedChunks, releasedBytes: storageManager.maxCapacityBytes });
+      const releasedBytes = storageManager.maxCapacityBytes;
+      storageManager.destroyAllStorage();
+      res.json({ success: true, deletedChunks, releasedBytes });
 
       // Stop PM2 process after sending response
       setTimeout(() => {

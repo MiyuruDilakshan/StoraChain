@@ -86,7 +86,7 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     // 1. SHA-256 integrity hash of the original plaintext
     const sha256Hash = crypto.createHash('sha256').update(buffer).digest('hex');
 
-    logActivity('upload', `📁 Upload started: "${originalname}"`, {
+    logActivity('upload', ` Upload started: "${originalname}"`, {
       fileId: null, fileName: originalname,
       fileSize: `${(size / 1024).toFixed(1)} KB`,
       mimeType: mimetype,
@@ -152,8 +152,71 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     });
 
     if (providers.length === 0) {
-      await updateFileProcessing(fileRecord._id, 'failed', 100, 'No storage providers are currently available', 'failed', 'No storage providers available');
-      return res.status(503).json({ message: 'No storage providers available' });
+      // No providers available — skip chunk distribution.
+      // The file is still encrypted and will be backed up to IPFS + S3 in the background.
+      // Download will use Tier-3 (IPFS) or Tier-4 (S3) automatically.
+      logActivity('matchmake', '⚠️ No providers available — uploading directly to IPFS/S3 backup', { fileId: fileRecord._id.toString() });
+
+      fileRecord = await FileRecord.findByIdAndUpdate(fileRecord._id, {
+        chunks: [],
+        matchmaking: {
+          source: 'none',
+          summary: 'No active providers — file stored via IPFS/S3 backup tiers only',
+          candidates: [],
+          selectedCount: 0,
+        },
+        processing: buildProcessing('provider_storage_complete', 70, 'No providers available; file will be served from IPFS/S3 backup'),
+      }, { new: true });
+
+      if (req.user.role === 'seeker') {
+        const fileGB = size / (1024 ** 3);
+        User.findByIdAndUpdate(req.user.id, { $inc: { usedStorageGB: fileGB } }).catch(() => {});
+      }
+
+      res.status(201).json({
+        message:    'File uploaded successfully (IPFS/S3 backup — no providers online)',
+        fileId:     fileRecord._id,
+        fileName:   originalname,
+        fileSize:   size,
+        sha256Hash,
+        shardCount: 0,
+        processing: fileRecord.processing,
+        matchmaking: fileRecord.matchmaking,
+      });
+
+      // Run IPFS + S3 + blockchain in background (same as normal path, but chunkMeta is empty)
+      const chunkMeta = [];
+      const chunks = [];
+      setImmediate(async () => {
+        let seekerWallet = walletAddress;
+        if (!seekerWallet) {
+          try { const u = await User.findById(req.user.id).select('walletAddress'); seekerWallet = u?.walletAddress || ''; } catch { /* ignore */ }
+        }
+        const providerWallets = [];
+        let finalCid = '';
+        try {
+          await updateFileProcessing(fileRecord._id, 'pinata_backup', 78, 'Backing up the encrypted full file to Pinata');
+          finalCid = await pinBuffer(encryptedBuffer, originalname + '.enc');
+          await FileRecord.findByIdAndUpdate(fileRecord._id, { ipfsCid: finalCid });
+          logActivity('ipfs', `✅ Full file pinned to IPFS — CID: ${finalCid.slice(0, 20)}…`, { fileId: fileRecord._id.toString(), cid: finalCid });
+        } catch (e) { console.warn('[Storage] IPFS pin failed (no-provider path):', e.message); }
+        try {
+          await updateFileProcessing(fileRecord._id, 'cloud_backup', 88, 'Writing encrypted disaster-recovery backup to S3');
+          const cloudPath = await cloudBackupService.upload(encryptedBuffer, fileRecord.fileName || originalname, fileRecord._id.toString());
+          if (cloudPath) await FileRecord.findByIdAndUpdate(fileRecord._id, { cloudBackupPath: cloudPath });
+        } catch (e) { console.warn('[Storage] S3 backup failed (no-provider path):', e.message); }
+        try {
+          await updateFileProcessing(fileRecord._id, 'blockchain', 96, 'Recording metadata on-chain');
+          const txHash = await blockchainService.storeFile(sha256Hash, finalCid, seekerWallet, providerWallets, size);
+          if (txHash) await FileRecord.findByIdAndUpdate(fileRecord._id, { onChainTxHash: txHash, txHash });
+        } catch (e) { console.warn('[Blockchain] On-chain registration failed (no-provider path):', e.message); }
+        if (previewData?.thumbnailBuffer) {
+          try { const pc = await pinBuffer(previewData.thumbnailBuffer, `preview_${originalname}.jpg`); await FileRecord.findByIdAndUpdate(fileRecord._id, { previewCid: pc }); } catch { /* ignore */ }
+        }
+        await updateFileProcessing(fileRecord._id, 'completed', 100, 'Upload completed. File served from IPFS/S3 (no providers were online).', 'completed');
+      });
+
+      return; // skip the normal provider distribution path below
     }
 
     const matchmakingCandidates = providers.slice(0, Math.min(5, providers.length)).map((provider) => ({
